@@ -33,7 +33,7 @@ async def expand_query(query: str, settings: Settings) -> str:
         {"role": "user", "content": query},
     ]
     try:
-        hypothetical_doc = await client.chat(messages, temperature=0.1)
+        hypothetical_doc = await client.chat(messages, temperature=0.3)
     except Exception:
         # HyDE is an enhancement, not a hard dependency — fall back to the
         # raw query if the HyDE model is unavailable.
