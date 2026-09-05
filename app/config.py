@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # --- Storage -------------------------------------------------------
     data_dir: Path = BACKEND_ROOT / "data"
     upload_dir: Path = BACKEND_ROOT / "data" / "uploads"
+    image_dir: Path = BACKEND_ROOT / "data" / "images"
     kb_dir: Path = BACKEND_ROOT / "data" / "kb"
     kb_db_path: Path = BACKEND_ROOT / "data" / "kb" / "knowledge_base.sqlite3"
     faiss_index_path: Path = BACKEND_ROOT / "data" / "kb" / "faiss.index"
@@ -53,6 +54,26 @@ class Settings(BaseSettings):
     vlm_base_url: str = "http://localhost:11434"
     vlm_api_key: str = ""
 
+    # Figure filtering before captioning (EduRAG Sec. III-A: size / aspect-ratio
+    # filters drop icons, rules, and logos; perceptual hashing drops repeats of
+    # the same figure across pages).
+    vlm_min_width_px: int = 120
+    vlm_min_height_px: int = 120
+    vlm_min_area_px: int = 40_000
+    vlm_max_aspect_ratio: float = 6.0
+    vlm_phash_distance: int = 4  # Hamming distance under which two figures are "the same"
+    vlm_max_images_per_doc: int = 40  # safety cap on captioning cost per upload
+
+    # --- Audio transcription (lecture recordings -> text chunks) -------------
+    # "openai_compatible" -> any /audio/transcriptions endpoint (Groq, OpenAI)
+    # "faster_whisper"    -> local CPU/GPU transcription, no API calls
+    # "none"              -> audio ingestion disabled
+    asr_provider: str = "none"
+    asr_model: str = "whisper-large-v3-turbo"
+    asr_base_url: str = "https://api.groq.com/openai/v1"
+    asr_api_key: str = ""
+    asr_segment_target_chars: int = 1200  # transcript chunk size before splitting
+
     # --- Retrieval tuning ----------------------------------------------------
     bm25_top_k: int = 20
     faiss_top_k: int = 20
@@ -64,6 +85,21 @@ class Settings(BaseSettings):
     attribution_beta: float = 0.3  # weight on lexical (Jaccard) overlap
     grounding_threshold: float = 0.8
 
+    # --- Contradiction detection (project novel contribution, Sec. 5.1) -------
+    # Band bounds calibrated by measuring bge-small-en-v1.5 cosine similarity on
+    # constructed pairs:
+    #     unrelated topics          0.47 - 0.52
+    #     genuine contradictions     0.82 - 0.89
+    #     paraphrases / agreement    0.91 - 1.00
+    # Contradictions and paraphrases *overlap*, so cosine similarity alone
+    # cannot tell "these disagree" from "these agree" — which is exactly why the
+    # base paper's bare-threshold consensus check is weak. The band's only job is
+    # to discard unrelated pairs and verbatim duplicates cheaply; the LLM
+    # verification step below does the actual discrimination.
+    consensus_related_min: float = 0.70
+    consensus_agreement_max: float = 0.97
+    consensus_max_pairs_verified: int = 6  # LLM verification budget per query
+
     # --- Server ----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
@@ -73,4 +109,5 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     settings.kb_dir.mkdir(parents=True, exist_ok=True)
+    settings.image_dir.mkdir(parents=True, exist_ok=True)
     return settings

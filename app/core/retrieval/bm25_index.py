@@ -35,11 +35,26 @@ def get_stopwords() -> set[str]:
 
 
 def tokenize(text: str) -> list[str]:
+    """Lowercased word tokens, punctuation dropped. Stopwords are kept — the
+    grounding and ROUGE-L/token-F1 metrics need the full token stream. Use
+    `tokenize_for_retrieval` for the BM25 path instead."""
     _ensure_nltk_data()
     from nltk.tokenize import word_tokenize
 
     tokens = word_tokenize(text.lower())
     return [t for t in tokens if re.search(r"[a-z0-9]", t)]
+
+
+def tokenize_for_retrieval(text: str) -> list[str]:
+    """BM25 tokens with stopwords removed.
+
+    Left in, stopwords make BM25 score any chunk sharing only a word like "the"
+    against the query. Those junk candidates carry a real RRF rank and can push
+    genuine matches out of the fused candidate pool, so they are dropped before
+    indexing and before scoring.
+    """
+    stopwords = get_stopwords()
+    return [t for t in tokenize(text) if t not in stopwords]
 
 
 class BM25Index:
@@ -49,13 +64,16 @@ class BM25Index:
 
     def build(self, chunks: list[Chunk]) -> None:
         self._chunk_ids = [c.chunk_id for c in chunks]
-        tokenized = [tokenize(c.text) for c in chunks]
+        tokenized = [tokenize_for_retrieval(c.text) for c in chunks]
         self._bm25 = BM25Okapi(tokenized) if tokenized else None
 
     def search(self, query: str, top_k: int) -> list[tuple[str, float]]:
         if self._bm25 is None:
             return []
-        scores = self._bm25.get_scores(tokenize(query))
+        query_tokens = tokenize_for_retrieval(query)
+        if not query_tokens:
+            return []
+        scores = self._bm25.get_scores(query_tokens)
         ranked = sorted(zip(self._chunk_ids, scores), key=lambda x: x[1], reverse=True)
         return [(cid, score) for cid, score in ranked[:top_k] if score > 0]
 

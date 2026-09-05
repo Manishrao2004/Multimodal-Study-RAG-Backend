@@ -17,4 +17,12 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/kb/*
 !data/kb/.gitkeep
+data/images/*
+!data/images/.gitkeep
+
+# Evaluation artifacts (regenerate via `python -m app.eval.cli`)
+data/eval/
+
+# Test / tooling caches
+.pytest_cache/
 
