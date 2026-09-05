@@ -1,0 +1,19 @@
+[project]
+name = "study-assistant-backend"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "docling>=2.126.0",
+    "faiss-cpu>=1.15.0",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "nltk>=3.10.3",
+    "numpy>=2.5.2",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
+    "rank-bm25>=0.2.2",
+    "sentence-transformers>=6.0.1",
+    "uvicorn[standard]>=0.52.4",
+]

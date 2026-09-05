@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local secrets
+.env
+
+# Ingested data / generated indexes (regenerate via /ingest, don't commit)
+data/uploads/*
+!data/uploads/.gitkeep
+data/kb/*
+!data/kb/.gitkeep
+
