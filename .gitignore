@@ -26,3 +26,6 @@ data/eval/
 # Test / tooling caches
 .pytest_cache/
 
+# Personal Claude Code overrides (.claude/settings.json is shared, this isn't)
+.claude/settings.local.json
+
