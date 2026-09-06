@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes_ask import router as ask_router
 from app.api.routes_documents import router as documents_router
@@ -12,6 +14,9 @@ from app.api.routes_ingest import router as ingest_router
 from app.api.routes_study import router as study_router
 from app.config import get_settings
 from app.state import build_app_state
+
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -46,6 +51,18 @@ app.include_router(ask_router)
 app.include_router(evidence_router)
 app.include_router(study_router)
 app.include_router(documents_router)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Last-resort handler: any exception not already converted to an
+    HTTPException by a route (a bug in a library, an unexpected library
+    error) reaches here. Logs the real exception server-side but always
+    returns a generic message — never a stack trace or internal path, which
+    would otherwise leak implementation details to whoever sent the request
+    that triggered it."""
+    logger.error("Unhandled exception on %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 
 @app.get("/health", tags=["meta"])

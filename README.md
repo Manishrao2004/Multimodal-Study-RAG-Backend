@@ -27,7 +27,8 @@ sources disagree.
 | 3 | Cross-document contradiction detection *(extended beyond the paper)* | ✅ |
 | 4 | Summaries, document comparison, quiz/MCQ/flashcard generation | ✅ |
 | 4 | FastAPI application layer | ✅ |
-| — | Evaluation harness: LLM-as-teacher benchmark, 3-way ablation, metrics | ✅ |
+| — | Evaluation harness: LLM-as-teacher benchmark, 3-way ablation, metrics, paired significance testing | ✅ |
+| — | Security hardening: upload validation, query sanitization, injection defenses | ✅ |
 
 Every modality is converted to text at ingestion time — a diagram becomes its
 caption, a lecture becomes its transcript — so retrieval, reranking, attribution
@@ -197,6 +198,52 @@ is 8k TPM). The client retries on 429 honouring `Retry-After`; without it an
 evaluation run silently loses a third of its queries and reports metrics over
 whatever survived.
 
+**Significance testing.** The ablation table (BM25 → hybrid → full) is three
+point estimates on a benchmark of tens of queries — not enough to eyeball
+whether a gain is real. `app/eval/significance.py` runs a paired Wilcoxon
+signed-rank test (not a t-test: per-query MRR is bounded in [0, 1] and not
+normally distributed) between each consecutive ablation arm on the *same*
+queries, and reports it alongside the table so a reported improvement is a
+tested claim, not just a bigger number.
+
+---
+
+## Security
+
+Uploaded files and retrieved chunk text are both untrusted input — a student's
+own material, but not necessarily benign or well-formed. There is no
+authentication and no multi-tenant isolation (out of scope for a local-first,
+single-user tool); what's here is narrower:
+
+- **Upload validation** (`app/core/security.py`): magic-byte checks against
+  the declared extension (PDF/DOCX/PPTX/audio), a size ceiling per category
+  (documents vs. the larger lecture-audio limit), and filename sanitization
+  that strips path components *and* any character outside a safe allowlist —
+  not just directory traversal.
+- **Query sanitization**: every free-text field (`/ask` query, `/study` topic)
+  is length-capped and rejects raw control characters via a pydantic
+  validator, so a malformed request never reaches retrieval or gets logged
+  verbatim with control bytes intact.
+- **Evidence-is-data prompt framing**: retrieved chunk text is explicitly
+  labelled as data to reason about, never as instructions, and delimited from
+  the system prompt and the student's question with literal section markers.
+  `neutralize_prompt_markers` breaks any literal occurrence of those markers
+  *inside* a chunk's own text, closing the "marker spoofing" gap that framing
+  alone doesn't — a malicious document can't fake a new section boundary.
+- **Injection-signal logging** (log-only, never blocking): evidence is scanned
+  for multi-word phrasing shaped like a prompt-injection attempt before it
+  enters a prompt. Tuned against single-keyword false positives — "ignore" or
+  "system" alone are ordinary academic vocabulary ("ignore the sign", "the
+  immune system") and must not trigger on their own.
+- **Safe error responses**: a catch-all exception handler logs the real
+  exception server-side and always returns a generic `{"detail": "Internal
+  server error."}` — never a stack trace or internal path.
+
+None of this claims prompt injection is solved — no prompt-engineering or
+detection layer can guarantee a model is never influenced by adversarial text
+in its context window. It raises the bar and keeps failures from leaking
+internals, without pretending to eliminate the underlying risk.
+
 ---
 
 ## Tests
@@ -205,7 +252,7 @@ whatever survived.
 uv run pytest
 ```
 
-128 tests, no network access required — every provider is disabled in the test
+182 tests, no network access required — every provider is disabled in the test
 fixtures, so the suite exercises real retrieval, attribution and grounding
 against a local index.
 
