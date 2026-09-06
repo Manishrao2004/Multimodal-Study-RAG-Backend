@@ -86,6 +86,22 @@ Three independent deterministic signals, all in `app/core/attribution/`:
 No SHAP/LIME, no perturbations — that is the paper's core claim and the reason
 the whole thing is O(k) rather than O(2^M).
 
+### Security boundary (`app/core/security.py`)
+
+Uploaded files and retrieved chunk text are both untrusted input; nothing else
+here assumes authentication or multi-tenant isolation (out of scope by
+design). Four things live in this one module rather than scattered across
+routes: `validate_upload` (magic bytes + per-category size ceiling +
+character-allowlist filename sanitization), `validate_query_text` (length +
+control-char rejection, wired in as a pydantic `field_validator` on every
+free-text request field in `schemas.py` — new free-text fields need the same
+validator, not a per-route check), `neutralize_prompt_markers` (breaks a
+malicious chunk's literal copy of this app's own prompt section markers
+before it's interpolated in), and `detect_injection_signals` (log-only,
+scanned in `format_context` — never blocks a chunk). None of this claims
+prompt injection is solved; it closes specific structural gaps and logs the
+rest.
+
 ## Things that will bite you
 
 **Two tokenizers, deliberately.** `tokenize` keeps stopwords (token grounding
@@ -123,6 +139,14 @@ converter is `lru_cache`d because it loads layout models on first use.
 **Audio chunks have no page number.** Use `Chunk.locator()` rather than
 formatting `source_file`/`page_number` yourself; it emits `file @ 2:05` for
 transcripts and `file, p.42` otherwise.
+
+**A point estimate on a small benchmark isn't a claim.** The ablation table's
+three numbers come from tens of queries, not thousands — `ablation_significance`
+(`app/eval/runner.py`) runs a paired Wilcoxon test on per-query MRR between
+consecutive arms so a reported gain can be labelled significant or not,
+rather than eyeballing three means. Uses `RetrievalScores.per_query_reciprocal_rank`,
+which every `evaluate_retrieval` call now populates — don't drop that field
+when refactoring the dataclass.
 
 ## Tests
 

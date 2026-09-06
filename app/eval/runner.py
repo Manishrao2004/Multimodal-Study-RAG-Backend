@@ -28,9 +28,11 @@ from app.eval.metrics import (
     faithfulness,
     mean_reciprocal_rank,
     recall_at_k,
+    reciprocal_rank,
     rouge_l,
     token_f1,
 )
+from app.eval.significance import PairedTestResult, paired_wilcoxon
 from app.models.schemas import RetrievalMode
 
 # Retrieval must fetch deep enough to score Recall@5 meaningfully; the reported
@@ -45,6 +47,10 @@ class RetrievalScores:
     mrr: float
     recall_at_1: float
     recall_at_5: float
+    # Per-query reciprocal ranks, in benchmark order — kept alongside the
+    # aggregate so two arms can be paired for a significance test without
+    # re-running retrieval (see app.eval.significance.paired_wilcoxon).
+    per_query_reciprocal_rank: list[float] = field(default_factory=list)
 
     def as_row(self) -> dict:
         return {
@@ -105,12 +111,14 @@ async def evaluate_retrieval(
         retrieved_ids.append([chunk.chunk_id for chunk, _ in ranked])
         gold_ids.append(item.gold_chunk_id)
 
+    per_query_rr = [reciprocal_rank(r, gold) for r, gold in zip(retrieved_ids, gold_ids)]
     return RetrievalScores(
         mode=mode.value,
         queries=len(items),
         mrr=mean_reciprocal_rank(retrieved_ids, gold_ids),
         recall_at_1=recall_at_k(retrieved_ids, gold_ids, 1),
         recall_at_5=recall_at_k(retrieved_ids, gold_ids, 5),
+        per_query_reciprocal_rank=per_query_rr,
     )
 
 
@@ -122,6 +130,24 @@ async def run_ablation(
     """EduRAG Table 3: BM25-only -> hybrid (no HyDE/rerank) -> full system."""
     modes = modes or [RetrievalMode.bm25_only, RetrievalMode.hybrid, RetrievalMode.full]
     return [await evaluate_retrieval(items, index, mode) for mode in modes]
+
+
+def ablation_significance(ablation: list[RetrievalScores]) -> list[PairedTestResult]:
+    """Paired Wilcoxon on per-query reciprocal rank between each consecutive
+    pair of ablation arms (bm25_only -> hybrid, hybrid -> full, ...), so the
+    table's monotonic gain can be reported as "distinguishable from noise",
+    not just as three point estimates. Benchmarks here are typically small
+    (tens of queries), where that distinction matters."""
+    results = []
+    for arm_a, arm_b in zip(ablation, ablation[1:]):
+        results.append(
+            paired_wilcoxon(
+                metric=f"MRR: {arm_a.mode} -> {arm_b.mode}",
+                values_a=arm_a.per_query_reciprocal_rank,
+                values_b=arm_b.per_query_reciprocal_rank,
+            )
+        )
+    return results
 
 
 async def evaluate_generation(

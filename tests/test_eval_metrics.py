@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.eval.benchmark import sample_chunks
 from app.eval.metrics import (
     mean_reciprocal_rank,
@@ -10,6 +12,7 @@ from app.eval.metrics import (
     rouge_l,
     token_f1,
 )
+from app.eval.significance import bootstrap_ci, paired_wilcoxon
 from app.models.schemas import ChunkType
 from tests.conftest import make_chunk
 
@@ -128,3 +131,54 @@ class TestGenerationScoreReporting:
         row = self._scores(citation_validity_rate=0.5, citation_coverage=1.0).as_row()
         assert row["Citation Validity Rate"] == 0.5
         assert row["Citation Coverage"] == 1.0
+
+
+class TestPairedWilcoxon:
+    def test_consistently_higher_arm_is_flagged_significant(self):
+        # A clear, consistent improvement across every query.
+        values_a = [0.2, 0.3, 0.1, 0.25, 0.15, 0.3, 0.2, 0.1, 0.35, 0.2]
+        values_b = [0.9, 0.85, 0.95, 0.8, 0.9, 0.88, 0.92, 0.85, 0.9, 0.87]
+        result = paired_wilcoxon("MRR", values_a, values_b)
+        assert result.mean_diff > 0
+        assert result.p_value is not None
+        assert result.p_value < 0.05
+        assert result.significant_at_0_05 is True
+
+    def test_identical_arms_are_not_significant(self):
+        values = [0.5, 0.6, 0.4, 0.7, 0.3]
+        result = paired_wilcoxon("MRR", values, list(values))
+        assert result.statistic is None
+        assert result.p_value is None
+        assert result.significant_at_0_05 is None
+        assert "undefined" in result.note
+
+    def test_mismatched_lengths_raise(self):
+        with pytest.raises(ValueError):
+            paired_wilcoxon("MRR", [0.1, 0.2], [0.1])
+
+    def test_means_are_reported_regardless_of_significance(self):
+        result = paired_wilcoxon("MRR", [0.5, 0.5], [0.5, 0.5])
+        assert result.mean_a == 0.5
+        assert result.mean_b == 0.5
+
+
+class TestBootstrapCI:
+    def test_ci_brackets_the_mean(self):
+        values = [0.5, 0.6, 0.55, 0.45, 0.5, 0.6, 0.5]
+        mean, lo, hi = bootstrap_ci(values, n_resamples=2000)
+        assert lo <= mean <= hi
+
+    def test_empty_input_returns_zeros(self):
+        assert bootstrap_ci([]) == (0.0, 0.0, 0.0)
+
+    def test_constant_values_give_a_zero_width_interval(self):
+        mean, lo, hi = bootstrap_ci([0.7, 0.7, 0.7], n_resamples=500)
+        assert mean == pytest.approx(0.7)
+        assert lo == pytest.approx(hi)
+        assert lo == pytest.approx(mean)
+
+    def test_same_seed_is_reproducible(self):
+        values = [0.1, 0.9, 0.3, 0.7, 0.5]
+        first = bootstrap_ci(values, n_resamples=500, seed=1)
+        second = bootstrap_ci(values, n_resamples=500, seed=1)
+        assert first == second

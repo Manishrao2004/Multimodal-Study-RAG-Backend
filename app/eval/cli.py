@@ -26,7 +26,12 @@ from app.core.ingestion.pipeline import DOCUMENT_SUFFIXES, parse_document
 from app.db.knowledge_base import KnowledgeBase
 from app.eval.benchmark import generate_benchmark, load_benchmark, save_benchmark
 from app.eval.metrics import bertscore_available
-from app.eval.runner import evaluate_generation, evaluate_retrieval, run_ablation
+from app.eval.runner import (
+    ablation_significance,
+    evaluate_generation,
+    evaluate_retrieval,
+    run_ablation,
+)
 from app.models.schemas import ChunkType, RetrievalMode
 from app.state import build_app_state
 
@@ -127,6 +132,28 @@ async def _run(args: argparse.Namespace) -> None:
     sections.append(_markdown_table([s.as_row() for s in ablation]))
     for score in ablation:
         print(f"  {score.mode:<12} MRR={score.mrr:.4f}  R@1={score.recall_at_1:.4f}  R@5={score.recall_at_5:.4f}")
+
+    significance = ablation_significance(ablation)
+    if significance:
+        sections.append("\n### Significance (paired Wilcoxon on per-query MRR)\n")
+        sections.append(
+            _markdown_table(
+                [
+                    {
+                        "comparison": s.metric,
+                        "n": s.n,
+                        "mean diff": round(s.mean_diff, 4),
+                        "p-value": round(s.p_value, 4) if s.p_value is not None else "n/a",
+                        "significant (p<0.05)": s.significant_at_0_05,
+                        "note": s.note,
+                    }
+                    for s in significance
+                ]
+            )
+        )
+        for s in significance:
+            p_display = f"{s.p_value:.4f}" if s.p_value is not None else "n/a"
+            print(f"  {s.metric}: diff={s.mean_diff:+.4f} p={p_display} sig={s.significant_at_0_05}")
 
     visual_path = Path(args.visual_benchmark)
     if visual_path.exists():

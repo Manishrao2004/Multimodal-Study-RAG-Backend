@@ -1,6 +1,20 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.security import validate_query_text
+
+# Max length is also enforced declaratively via Field(max_length=...) on each
+# field below (kept in sync with Settings.security_max_query_length); this
+# validator additionally rejects blank text and disallowed control
+# characters, which a length bound alone can't catch — see app.core.security
+# for why raw control chars in a query matter (log/terminal injection via a
+# verbatim-logged query).
+_MAX_QUERY_LENGTH = 4000
+
+
+def _clean_query_text(value: str) -> str:
+    return validate_query_text(value, max_length=_MAX_QUERY_LENGTH)
 
 
 class ChunkType(str, Enum):
@@ -76,10 +90,12 @@ class RetrievalMode(str, Enum):
 
 
 class AskRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: RetrievalMode = RetrievalMode.full
     detect_contradictions: bool = True
+
+    _validate_query = field_validator("query")(_clean_query_text)
 
 
 class EvidenceItem(BaseModel):
@@ -131,9 +147,11 @@ class AskResponse(BaseModel):
 
 
 class SummarizeRequest(BaseModel):
-    topic: str
+    topic: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     top_k: int = Field(default=8, ge=1, le=20)
     source_file: str | None = None
+
+    _validate_topic = field_validator("topic")(_clean_query_text)
 
 
 class SummarizeResponse(BaseModel):
@@ -145,10 +163,12 @@ class SummarizeResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    topic: str
+    topic: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     source_a: str
     source_b: str
     top_k: int = Field(default=4, ge=1, le=10)
+
+    _validate_topic = field_validator("topic")(_clean_query_text)
 
 
 class CompareResponse(BaseModel):
@@ -166,11 +186,13 @@ class QuizFormat(str, Enum):
 
 
 class QuizRequest(BaseModel):
-    topic: str
+    topic: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     count: int = Field(default=5, ge=1, le=20)
     format: QuizFormat = QuizFormat.mcq
     top_k: int = Field(default=8, ge=1, le=20)
     source_file: str | None = None
+
+    _validate_topic = field_validator("topic")(_clean_query_text)
 
 
 class QuizItem(BaseModel):

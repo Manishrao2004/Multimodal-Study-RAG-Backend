@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     consensus_agreement_max: float = 0.97
     consensus_max_pairs_verified: int = 6  # LLM verification budget per query
 
+    # --- Security ----------------------------------------------------------------
+    # Uploaded files and retrieved chunk text are both untrusted input.
+    security_max_document_bytes: int = 25_000_000  # 25 MB per PDF/DOCX/PPTX/HTML
+    security_max_audio_bytes: int = 100_000_000  # 100 MB per lecture recording
+    security_max_query_length: int = 4000  # applies to /ask query and /study topic
+
     # --- Server ----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

@@ -189,3 +189,36 @@ class TestCitationMarkerParsing:
         from app.core.generation.study_tools import _parse_marker
 
         assert _parse_marker(value) is None
+
+
+class TestQuizDedup:
+    def test_exact_duplicate_questions_are_dropped(self):
+        from app.core.generation.duplicates import dedupe
+
+        items = ["What is BM25?", "What is BM25?", "What is HyDE?"]
+        kept, duplicate_count = dedupe(items, key=lambda x: x)
+        assert kept == ["What is BM25?", "What is HyDE?"]
+        assert duplicate_count == 1
+
+    def test_case_and_punctuation_differences_still_count_as_duplicates(self):
+        from app.core.generation.duplicates import dedupe
+
+        items = ["What is BM25?", "what is bm25"]
+        kept, duplicate_count = dedupe(items, key=lambda x: x)
+        assert len(kept) == 1
+        assert duplicate_count == 1
+
+    def test_first_occurrence_order_is_preserved(self):
+        from app.core.generation.duplicates import dedupe
+
+        items = ["b", "a", "b", "c"]
+        kept, _ = dedupe(items, key=lambda x: x)
+        assert kept == ["b", "a", "c"]
+
+    def test_no_duplicates_returns_everything(self):
+        from app.core.generation.duplicates import dedupe
+
+        items = ["one", "two", "three"]
+        kept, duplicate_count = dedupe(items, key=lambda x: x)
+        assert kept == items
+        assert duplicate_count == 0

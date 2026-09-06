@@ -2810,6 +2810,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-multipart" },
     { name = "rank-bm25" },
+    { name = "scipy" },
     { name = "sentence-transformers" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -2833,6 +2834,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "sentence-transformers", specifier = ">=6.0.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
 ]

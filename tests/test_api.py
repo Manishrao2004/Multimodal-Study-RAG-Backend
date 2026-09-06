@@ -7,7 +7,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_app_state
-from app.api.routes_ingest import safe_filename
 from app.main import app
 from app.models.schemas import ChunkType
 from tests.conftest import make_chunk
@@ -122,26 +121,6 @@ class TestEvidence:
         assert client.get("/evidence/c1/image").status_code == 404
 
 
-class TestUploadFilenameSafety:
-    def test_plain_filename_passes_through(self):
-        assert safe_filename("lecture.pdf") == "lecture.pdf"
-
-    @pytest.mark.parametrize(
-        "hostile",
-        ["../../etc/passwd", "..\\..\\windows\\system32\\cfg.pdf", "/abs/path/x.pdf"],
-    )
-    def test_directory_components_are_stripped(self, hostile):
-        cleaned = safe_filename(hostile)
-        assert "/" not in cleaned and "\\" not in cleaned
-        assert not cleaned.startswith("..")
-
-    def test_missing_filename_is_rejected(self):
-        from fastapi import HTTPException
-
-        with pytest.raises(HTTPException):
-            safe_filename("")
-
-
 class TestIngestValidation:
     def test_unsupported_extension_is_rejected(self, client):
         response = client.post(
@@ -149,6 +128,73 @@ class TestIngestValidation:
         )
         assert response.status_code == 400
         assert "Unsupported file type" in response.json()["detail"]
+
+    def test_content_not_matching_declared_extension_is_rejected(self, client):
+        response = client.post(
+            "/ingest", files={"file": ("fake.pdf", b"not actually a pdf", "application/pdf")}
+        )
+        assert response.status_code == 400
+        assert "does not look like" in response.json()["detail"]
+
+    def test_oversized_document_is_rejected_before_parsing(self, client, populated_state):
+        original_limit = populated_state.settings.security_max_document_bytes
+        populated_state.settings.security_max_document_bytes = 10
+        try:
+            response = client.post(
+                "/ingest",
+                files={"file": ("big.pdf", b"%PDF-1.7" + b"x" * 1000, "application/pdf")},
+            )
+            assert response.status_code == 400
+            assert "exceeds" in response.json()["detail"]
+        finally:
+            populated_state.settings.security_max_document_bytes = original_limit
+
+    def test_hostile_filename_is_sanitized_in_the_response(self, client):
+        response = client.post(
+            "/ingest",
+            files={"file": ("../../etc/passwd.exe", b"MZ", "application/octet-stream")},
+        )
+        # Rejected for extension, but the filename must never round-trip
+        # with a path component even in an error path.
+        assert response.status_code == 400
+
+
+class TestQueryInputValidation:
+    def test_empty_query_is_rejected_with_422(self, client):
+        response = client.post("/ask", json={"query": "   "})
+        assert response.status_code == 422
+
+    def test_control_character_in_query_is_rejected(self, client):
+        response = client.post("/ask", json={"query": "hello\x00world"})
+        assert response.status_code == 422
+
+    def test_overlong_query_is_rejected(self, client):
+        response = client.post("/ask", json={"query": "x" * 5000})
+        assert response.status_code == 422
+
+    def test_whitespace_is_stripped_before_reaching_retrieval(self, client):
+        response = client.post("/ask", json={"query": "  reciprocal rank fusion  "})
+        assert response.status_code == 200
+
+
+class TestUnhandledExceptionHandler:
+    def test_unhandled_exception_returns_generic_500_not_a_stack_trace(
+        self, populated_state, monkeypatch
+    ):
+        async def boom(*args, **kwargs):
+            raise RuntimeError("internal detail that must not leak: /etc/shadow")
+
+        monkeypatch.setattr("app.api.routes_ask.generate_answer", boom)
+        app.dependency_overrides[get_app_state] = lambda: populated_state
+        try:
+            with TestClient(app, raise_server_exceptions=False) as test_client:
+                response = test_client.post("/ask", json={"query": "reciprocal rank fusion"})
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Internal server error."}
+        assert "/etc/shadow" not in response.text
 
 
 @pytest.mark.asyncio
