@@ -20,6 +20,7 @@ sources disagree.
 | 1 | Docling parsing → page/section-aware text & table chunks | ✅ |
 | 1 | Figure extraction → geometry filter → pHash dedup → VLM captions → visual chunks | ✅ |
 | 1 | Lecture audio → Whisper transcript → timestamped chunks | ✅ |
+| 1 | Pasted screenshot/image → question-aware VLM analysis → optional visual chunk | ✅ |
 | 2 | BM25 (sparse) + FAISS (dense) dual index | ✅ |
 | 2 | HyDE query expansion, RRF fusion, cross-encoder reranking | ✅ |
 | 3 | Citation-constrained grounded generation | ✅ |
@@ -84,6 +85,7 @@ models are actually wired up (secrets reported only as present/absent).
 | --- | --- | --- |
 | `POST` | `/ingest` | Upload a document or audio file; parses, captions figures, indexes |
 | `POST` | `/ask` | Grounded answer + citations + token grounding + attribution |
+| `POST` | `/vision/ask` | Ask about a pasted image; optionally retrieve notes and save it |
 | `GET` | `/evidence/{chunk_id}` | Fetch a cited chunk |
 | `GET` | `/evidence/{chunk_id}/image` | The source figure behind a visual chunk |
 | `POST` | `/study/summarize` | Citation-grounded topic summary |
@@ -96,6 +98,17 @@ models are actually wired up (secrets reported only as present/absent).
 
 `POST /ask` accepts a `mode` for the ablation arms: `bm25_only`, `dense_only`,
 `hybrid`, `full` (default).
+
+### Screenshot questions
+
+`POST /vision/ask` accepts multipart form data with an image (`png`, `jpg`,
+`jpeg`, or `webp`) and a text `question`. Pasted screenshots are normalized and
+processed in memory by default. Set `use_knowledge_base=true` to augment the
+answer with relevant uploaded study material, or `save_to_library=true` to keep
+the normalized image and its VLM analysis as a searchable visual chunk.
+
+A frontend can send clipboard images from a paste event directly to this
+endpoint; no separate document-ingestion step is required.
 
 ---
 
@@ -252,9 +265,10 @@ internals, without pretending to eliminate the underlying risk.
 uv run pytest
 ```
 
-182 tests, no network access required — every provider is disabled in the test
-fixtures, so the suite exercises real retrieval, attribution and grounding
-against a local index.
+193 tests; every hosted provider is disabled in the test fixtures, so the suite
+exercises retrieval, attribution and grounding against a local index. A clean
+machine may download the configured embedding/reranker models and NLTK tokenizer
+data on its first run; subsequent runs use the local caches.
 
 ---
 

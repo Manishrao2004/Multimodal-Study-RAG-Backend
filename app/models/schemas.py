@@ -143,6 +143,23 @@ class AskResponse(BaseModel):
     latency_ms: float | None = None
 
 
+class ScreenshotAskResponse(BaseModel):
+    """Question answered from a pasted/captured image, optionally augmented
+    with evidence retrieved from the persistent study-material knowledge base."""
+
+    answer: str
+    image_analysis: str
+    image_width: int
+    image_height: int
+    evidence: list[EvidenceItem]
+    citations: list[Citation]
+    grounding_ratio: float
+    citation_validity_rate: float
+    used_knowledge_base: bool
+    saved: bool = False
+    saved_chunk_id: str | None = None
+
+
 # --- Study-productivity layer (plan Sec. 5.2) -----------------------------
 
 
