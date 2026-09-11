@@ -50,6 +50,9 @@ _DOCUMENT_MAGIC_BYTES: dict[str, tuple[bytes, ...]] = {
     "pdf": (b"%PDF-",),
     "docx": (b"PK\x03\x04",),
     "pptx": (b"PK\x03\x04",),
+    "png": (b"\x89PNG\r\n\x1a\n",),
+    "jpg": (b"\xff\xd8\xff",),
+    "jpeg": (b"\xff\xd8\xff",),
 }
 
 # WAV/RIFF, MP3 (ID3 tag or a raw MPEG frame sync), OGG, FLAC, and M4A/MP4
@@ -68,6 +71,8 @@ _M4A_LIKE_EXTENSIONS = frozenset({"m4a", "mp4", "mpga"})
 def _looks_like_declared_type(data: bytes, extension: str) -> bool:
     if extension in _M4A_LIKE_EXTENSIONS:
         return data[4:8] == b"ftyp"
+    if extension == "webp":
+        return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
     signatures = _DOCUMENT_MAGIC_BYTES.get(extension) or _AUDIO_MAGIC_BYTES.get(extension)
     if signatures is None:
         return True

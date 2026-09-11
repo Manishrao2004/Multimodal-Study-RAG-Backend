@@ -12,6 +12,7 @@ from app.api.routes_documents import router as documents_router
 from app.api.routes_evidence import router as evidence_router
 from app.api.routes_ingest import router as ingest_router
 from app.api.routes_study import router as study_router
+from app.api.routes_vision import router as vision_router
 from app.config import get_settings
 from app.state import build_app_state
 
@@ -50,6 +51,7 @@ app.include_router(ingest_router)
 app.include_router(ask_router)
 app.include_router(evidence_router)
 app.include_router(study_router)
+app.include_router(vision_router)
 app.include_router(documents_router)
 
 

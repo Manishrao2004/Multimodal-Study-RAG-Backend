@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     # Uploaded files and retrieved chunk text are both untrusted input.
     security_max_document_bytes: int = 25_000_000  # 25 MB per PDF/DOCX/PPTX/HTML
     security_max_audio_bytes: int = 100_000_000  # 100 MB per lecture recording
+    security_max_screenshot_bytes: int = 10_000_000  # 10 MB per pasted/captured image
+    security_max_screenshot_pixels: int = 20_000_000  # decompression-bomb guard
+    screenshot_max_dimension_px: int = 4096  # resize very large captures before VLM calls
     security_max_query_length: int = 4000  # applies to /ask query and /study topic
 
     # --- Server ----------------------------------------------------------------
