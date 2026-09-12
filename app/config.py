@@ -110,7 +110,15 @@ class Settings(BaseSettings):
     security_max_query_length: int = 4000  # applies to /ask query and /study topic
 
     # --- Server ----------------------------------------------------------------
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+    # Local frontend tools may select a different free port. Restrict the
+    # development regex to loopback hosts so this remains safe with cookies.
+    cors_origin_regex: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
 
 @lru_cache
