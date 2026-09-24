@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +21,46 @@ from app.state import AppState
 router = APIRouter(tags=["ask"])
 
 
+async def _comprehensive_retrieve(request: AskRequest, state: AppState):
+    """Retrieve a compact but source-diverse evidence set for broad questions.
+
+    A regular RAG query rewards the globally best passages, which can make one
+    detailed document crowd out the rest of the library. Comprehensive mode
+    deliberately asks each source for its strongest passages, then preserves
+    the global results as a relevance backstop.
+    """
+    sources = [document.source_file for document in state.kb.list_documents()]
+    per_source = min(3, max(1, request.top_k))
+    global_limit = min(20, max(12, request.top_k * 3))
+    global_hits = await state.retrieval.retrieve(
+        request.query, top_k=global_limit, mode=request.mode
+    )
+    by_source = await asyncio.gather(
+        *(
+            state.retrieval.retrieve(
+                request.query, top_k=per_source, mode=request.mode, source_file=source
+            )
+            for source in sources
+        )
+    )
+
+    selected: list[tuple] = []
+    seen: set[str] = set()
+    # Give every source with relevant material a chance to contribute before
+    # filling the remainder by global relevance.
+    for hits in by_source:
+        for hit in hits:
+            if hit[0].chunk_id not in seen:
+                selected.append(hit)
+                seen.add(hit[0].chunk_id)
+    for hit in global_hits:
+        if hit[0].chunk_id not in seen:
+            selected.append(hit)
+            seen.add(hit[0].chunk_id)
+
+    return selected[:global_limit], sources
+
+
 @router.post("/ask", response_model=AskResponse)
 async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     if not state.retrieval.is_ready:
@@ -30,9 +71,13 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     settings = state.settings
     started = time.perf_counter()
 
-    ranked = await state.retrieval.retrieve(
-        request.query, top_k=request.top_k, mode=request.mode
-    )
+    sources_considered: list[str] = []
+    if request.comprehensive:
+        ranked, sources_considered = await _comprehensive_retrieve(request, state)
+    else:
+        ranked = await state.retrieval.retrieve(
+            request.query, top_k=request.top_k, mode=request.mode
+        )
     if not ranked:
         raise HTTPException(status_code=404, detail="No relevant evidence found.")
 
@@ -49,7 +94,11 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
             disagreements = []  # never fail a query over the optional feature
 
     try:
-        answer = await generate_answer(request.query, chunks, settings, disagreements)
+        generation_args = (request.query, chunks, settings, disagreements)
+        if request.history:
+            answer = await generate_answer(*generation_args, history=request.history)
+        else:
+            answer = await generate_answer(*generation_args)
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -81,4 +130,7 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         disagreements=disagreements,
         mode=request.mode,
         latency_ms=round((time.perf_counter() - started) * 1000, 1),
+        comprehensive=request.comprehensive,
+        sources_considered=sources_considered,
+        sources_used=sorted({chunk.source_file for chunk in chunks}),
     )
