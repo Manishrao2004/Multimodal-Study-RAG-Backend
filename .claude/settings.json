@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest *)",
+      "Bash(uv run python -m app.eval.cli *)",
+      "Bash(uv sync)",
+      "Bash(uv lock *)",
+      "Bash(uv run uvicorn *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git ls-files *)",
+      "Bash(git check-ignore *)"
+    ],
+    "deny": [
+      "Read(.env)"
+    ]
+  }
+}
