@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -89,15 +90,28 @@ class RetrievalMode(str, Enum):
     full = "full"  # + HyDE expansion + cross-encoder reranking
 
 
+class ConversationTurn(BaseModel):
+    """Recent client-side conversation context for a follow-up question.
+
+    This is deliberately small and is never treated as evidence: it only helps
+    resolve references such as "explain that more simply".
+    """
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
+
+    _validate_content = field_validator("content")(_clean_query_text)
+
+
 class AskRequest(BaseModel):
     query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: RetrievalMode = RetrievalMode.full
     detect_contradictions: bool = True
+    comprehensive: bool = False
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
 
     _validate_query = field_validator("query")(_clean_query_text)
-
-
 class EvidenceItem(BaseModel):
     chunk: Chunk
     rerank_score: float
@@ -141,6 +155,9 @@ class AskResponse(BaseModel):
     disagreements: list[Disagreement] = Field(default_factory=list)
     mode: RetrievalMode = RetrievalMode.full
     latency_ms: float | None = None
+    comprehensive: bool = False
+    sources_considered: list[str] = Field(default_factory=list)
+    sources_used: list[str] = Field(default_factory=list)
 
 
 class ScreenshotAskResponse(BaseModel):
