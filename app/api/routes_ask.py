@@ -10,18 +10,35 @@ from app.core.attribution.chunk_attribution import compute_attribution, normaliz
 from app.core.attribution.citation_validation import (
     citation_validity_rate,
     extract_and_validate_citations,
+    normalize_citation_markers,
 )
 from app.core.attribution.consensus import find_disagreements
 from app.core.attribution.token_grounding import compute_token_grounding, grounding_ratio
-from app.core.generation.answer import generate_answer
+from app.core.generation.answer import (
+    generate_answer,
+    generate_general_answer,
+    generate_mixed_answer,
+)
 from app.core.generation.llm_client import LLMError
-from app.models.schemas import AskRequest, AskResponse, EvidenceItem
+from app.core.generation.orchestration import (
+    evaluate_evidence,
+    plan_question,
+)
+from app.core.retrieval.sufficiency import assess_evidence_sufficiency
+from app.models.schemas import (
+    AnswerBasis,
+    AnswerScope,
+    AskRequest,
+    AskResponse,
+    EvidenceItem,
+    EvidenceSufficiency,
+    QuestionPlan,
+)
 from app.state import AppState
 
 router = APIRouter(tags=["ask"])
 
-
-async def _comprehensive_retrieve(request: AskRequest, state: AppState):
+async def _comprehensive_retrieve(request: AskRequest, state: AppState, query: str):
     """Retrieve a compact but source-diverse evidence set for broad questions.
 
     A regular RAG query rewards the globally best passages, which can make one
@@ -33,12 +50,12 @@ async def _comprehensive_retrieve(request: AskRequest, state: AppState):
     per_source = min(3, max(1, request.top_k))
     global_limit = min(20, max(12, request.top_k * 3))
     global_hits = await state.retrieval.retrieve(
-        request.query, top_k=global_limit, mode=request.mode
+        query, top_k=global_limit, mode=request.mode
     )
     by_source = await asyncio.gather(
         *(
             state.retrieval.retrieve(
-                request.query, top_k=per_source, mode=request.mode, source_file=source
+                query, top_k=per_source, mode=request.mode, source_file=source
             )
             for source in sources
         )
@@ -63,7 +80,7 @@ async def _comprehensive_retrieve(request: AskRequest, state: AppState):
 
 @router.post("/ask", response_model=AskResponse)
 async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
-    if not state.retrieval.is_ready:
+    if request.answer_scope == AnswerScope.sources_only and not state.retrieval.is_ready:
         raise HTTPException(
             status_code=409, detail="Knowledge base is empty. Ingest a document first."
         )
@@ -72,43 +89,120 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     started = time.perf_counter()
 
     sources_considered: list[str] = []
-    if request.comprehensive:
-        ranked, sources_considered = await _comprehensive_retrieve(request, state)
-    else:
-        ranked = await state.retrieval.retrieve(
-            request.query, top_k=request.top_k, mode=request.mode
-        )
-    if not ranked:
+    ranked = []
+    try:
+        question_plan = await plan_question(request.query, request.history, settings)
+    except Exception:
+        # Planning improves routing and follow-ups but must never make the main
+        # answer unavailable when a provider has a transient failure.
+        question_plan = QuestionPlan(standalone_query=request.query)
+    resolved_query = question_plan.standalone_query
+    if request.answer_scope != AnswerScope.model_only and state.retrieval.is_ready:
+        if request.comprehensive:
+            ranked, sources_considered = await _comprehensive_retrieve(
+                request, state, resolved_query
+            )
+        else:
+            ranked = await state.retrieval.retrieve(
+                resolved_query, top_k=request.top_k, mode=request.mode
+            )
+    if request.answer_scope == AnswerScope.sources_only and not ranked:
         raise HTTPException(status_code=404, detail="No relevant evidence found.")
 
-    chunks = [chunk for chunk, _ in ranked]
+    evidence_decision = None
+    if request.answer_scope == AnswerScope.model_only:
+        sufficiency = EvidenceSufficiency.not_checked
+    elif request.answer_scope == AnswerScope.auto and ranked:
+        try:
+            evidence_decision = await evaluate_evidence(
+                question_plan, [chunk for chunk, _ in ranked], settings
+            )
+            sufficiency = evidence_decision.sufficiency
+        except Exception:
+            sufficiency = assess_evidence_sufficiency(
+                resolved_query, ranked, request.mode
+            )
+    else:
+        sufficiency = assess_evidence_sufficiency(
+            resolved_query, ranked, request.mode
+        )
+    if request.answer_scope == AnswerScope.sources_only:
+        basis = AnswerBasis.sources
+    elif request.answer_scope == AnswerScope.model_only:
+        basis = AnswerBasis.model
+    elif sufficiency == EvidenceSufficiency.insufficient:
+        # A document can be useful context yet not fully answer a broader or
+        # current request. Keep that provenance visible instead of discarding
+        # relevant study material and silently switching to model-only output.
+        basis = (
+            AnswerBasis.mixed
+            if evidence_decision is not None and evidence_decision.topic_relevant
+            else AnswerBasis.model
+        )
+    elif sufficiency == EvidenceSufficiency.partial:
+        basis = AnswerBasis.mixed
+    else:
+        basis = AnswerBasis.sources
+
+    # Irrelevant passages must not appear beside a model-only answer: doing so
+    # would imply provenance that the answer did not actually use.
+    answer_ranked = ranked if basis != AnswerBasis.model else []
+    chunks = [chunk for chunk, _ in answer_ranked]
     scores_by_id = {chunk.chunk_id: score for chunk, score in ranked}
 
     # Run before generation: the conflict list is fed into the prompt so the
     # model can address both sides in its own words (plan Sec. 5.1).
     disagreements = []
-    if request.detect_contradictions:
+    if request.detect_contradictions and chunks:
         try:
             disagreements = await find_disagreements(chunks, settings)
         except Exception:
             disagreements = []  # never fail a query over the optional feature
 
     try:
-        generation_args = (request.query, chunks, settings, disagreements)
-        if request.history:
-            answer = await generate_answer(*generation_args, history=request.history)
+        if basis == AnswerBasis.model:
+            answer = await generate_general_answer(
+                resolved_query, settings, history=request.history, plan=question_plan
+            )
+        elif basis == AnswerBasis.mixed:
+            answer = await generate_mixed_answer(
+                resolved_query,
+                chunks,
+                settings,
+                disagreements,
+                history=request.history,
+                plan=question_plan,
+                covered_aspects=(
+                    evidence_decision.covered_aspects if evidence_decision else []
+                ),
+                missing_aspects=(
+                    evidence_decision.missing_aspects if evidence_decision else []
+                ),
+            )
         else:
-            answer = await generate_answer(*generation_args)
+            answer = await generate_answer(
+                resolved_query,
+                chunks,
+                settings,
+                disagreements,
+                history=request.history,
+                plan=question_plan,
+            )
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    attribution = compute_attribution(request.query, answer, chunks, settings)
-    percentages = normalize_to_percentages(attribution)
-    citations = extract_and_validate_citations(answer, chunks)
+    answer = normalize_citation_markers(answer)
 
-    context_text = "\n".join(c.text for c in chunks)
-    token_scores = compute_token_grounding(answer, context_text)
-    ratio = grounding_ratio(token_scores, settings.grounding_threshold)
+    attribution = compute_attribution(request.query, answer, chunks, settings) if chunks else {}
+    percentages = normalize_to_percentages(attribution) if attribution else {}
+    citations = extract_and_validate_citations(answer, chunks) if chunks else []
+
+    token_scores = None
+    ratio = None
+    if chunks:
+        context_text = "\n".join(c.text for c in chunks)
+        token_scores = compute_token_grounding(answer, context_text)
+        ratio = grounding_ratio(token_scores, settings.grounding_threshold)
 
     evidence = [
         EvidenceItem(
@@ -120,17 +214,42 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         for chunk in chunks
     ]
 
+    notices = {
+        AnswerBasis.sources: "Answer grounded in uploaded study material.",
+        AnswerBasis.mixed: (
+            "Uploaded material was relevant but incomplete; additional model knowledge "
+            "is separated and is not represented as document evidence."
+        ),
+        AnswerBasis.model: (
+            "No sufficiently relevant uploaded evidence was used. This answer comes "
+            "from general model knowledge and has not been verified by web research."
+        ),
+    }
+    provenance_notice = notices[basis]
+    if question_plan.verification_required:
+        reason = question_plan.verification_reason or "authoritative external evidence is required"
+        provenance_notice += f" Verification note: {reason}."
+    if basis == AnswerBasis.sources and sufficiency == EvidenceSufficiency.insufficient:
+        provenance_notice = (
+            "My sources only mode is active, but the retrieved material does not "
+            "appear sufficient for a complete answer. No model background was added."
+        )
+
     return AskResponse(
         answer=answer,
         evidence=evidence,
         token_grounding=token_scores,
         citations=citations,
         grounding_ratio=ratio,
-        citation_validity_rate=citation_validity_rate(citations),
+        citation_validity_rate=citation_validity_rate(citations) if chunks else None,
         disagreements=disagreements,
         mode=request.mode,
         latency_ms=round((time.perf_counter() - started) * 1000, 1),
         comprehensive=request.comprehensive,
         sources_considered=sources_considered,
         sources_used=sorted({chunk.source_file for chunk in chunks}),
+        answer_scope=request.answer_scope,
+        answer_basis=basis,
+        evidence_sufficiency=sufficiency,
+        provenance_notice=provenance_notice,
     )

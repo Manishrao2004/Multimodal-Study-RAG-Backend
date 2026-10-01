@@ -99,6 +99,28 @@ models are actually wired up (secrets reported only as present/absent).
 `POST /ask` accepts a `mode` for the ablation arms: `bm25_only`, `dense_only`,
 `hybrid`, `full` (default).
 
+It also accepts a student-facing `answer_scope`, independent of those research
+ablations:
+
+- `auto` (default) searches uploaded material first, assesses whether it is
+  sufficient, and returns a source-grounded, visibly mixed, or general-model
+  answer.
+- `sources_only` keeps the original strict RAG policy and refuses to invent
+  details absent from uploaded material.
+- `model_only` bypasses retrieval for general tutoring questions and never
+  presents model knowledge as document evidence.
+
+The response reports `answer_basis`, `evidence_sufficiency`, and a
+`provenance_notice`. Mixed answers separate **From your study material** from
+**Additional explanation**, and document citation markers are allowed only in
+the former section. Conversational follow-ups are rewritten into a complete
+question for both retrieval and generation, including the names of items
+referenced by phrases such as “explain each.” The general-knowledge prompts do
+not claim web verification and avoid definitive jurisdiction-specific or
+current claims without captured evidence. See `ADAPTIVE_HYBRID_PLAN.md` for the
+implementation and evaluation roadmap, including verified web research and
+durable chat storage.
+
 ### Screenshot questions
 
 `POST /vision/ask` accepts multipart form data with an image (`png`, `jpg`,
