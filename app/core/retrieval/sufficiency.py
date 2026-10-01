@@ -22,6 +22,28 @@ def _content_tokens(text: str) -> set[str]:
     return {token for token in _TOKEN.findall(text.lower()) if token not in _STOPWORDS}
 
 
+def _outline_only(text: str) -> bool:
+    """Recognize clear outlines without guessing whether normal prose is sufficient."""
+    lines = [re.sub(r"^\s*(?:[-*#]+|\d+[.)])\s*", "", line).strip()
+             for line in text.splitlines() if line.strip()]
+    if not lines:
+        return True
+    for line in lines:
+        list_intro = re.search(
+            r"\b(types|kinds|categories|forms|stages|steps)\b.{0,60}\b(are|include)\b",
+            line, re.IGNORECASE,
+        )
+        if list_intro:
+            continue
+        # An inline explanation or a sentence is substantive, even when short.
+        parts = re.split(r"\s*[:\u2013\u2014]\s*|\s+-\s+", line, maxsplit=1)
+        if len(parts) == 2 and len(_TOKEN.findall(parts[1])) >= 4:
+            return False
+        if len(_TOKEN.findall(line)) > 12 or re.search(r"[.!?]$", line):
+            return False
+    return True
+
+
 def assess_evidence_sufficiency(
     query: str,
     ranked: list[tuple[Chunk, float]],
@@ -49,4 +71,12 @@ def assess_evidence_sufficiency(
     else:
         result = EvidenceSufficiency.insufficient
 
+    if result == EvidenceSufficiency.strong and re.search(
+        r"\b(explain|describe|definition|meaning|elaborate|details?|understand)\b|\bwhat is\b",
+        query, re.IGNORECASE,
+    ):
+        related = [chunk for chunk, _ in ranked[:5]
+                   if query_tokens & _content_tokens(chunk.text + " " + (chunk.section_path or ""))]
+        if related and all(_outline_only(chunk.text) for chunk in related):
+            return EvidenceSufficiency.partial
     return result

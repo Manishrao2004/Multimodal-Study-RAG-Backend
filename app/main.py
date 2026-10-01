@@ -13,6 +13,8 @@ from app.api.routes_evidence import router as evidence_router
 from app.api.routes_ingest import router as ingest_router
 from app.api.routes_study import router as study_router
 from app.api.routes_vision import router as vision_router
+from app.api.routes_conversations import router as conversations_router
+from app.api.routes_conversations import router as conversations_router
 from app.config import get_settings
 from app.state import build_app_state
 
@@ -54,6 +56,8 @@ app.include_router(evidence_router)
 app.include_router(study_router)
 app.include_router(vision_router)
 app.include_router(documents_router)
+app.include_router(conversations_router)
+app.include_router(conversations_router)
 
 
 @app.exception_handler(Exception)

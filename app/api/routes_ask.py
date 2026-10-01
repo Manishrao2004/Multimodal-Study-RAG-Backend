@@ -118,6 +118,14 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
                 question_plan, [chunk for chunk, _ in ranked], settings
             )
             sufficiency = evidence_decision.sufficiency
+            if evidence_decision.topic_relevant and evidence_decision.needs_background:
+                sufficiency = EvidenceSufficiency.partial
+            if evidence_decision.topic_relevant and evidence_decision.topic_items:
+                question_plan = question_plan.model_copy(update={
+                    "referenced_items": list(dict.fromkeys(
+                        [*question_plan.referenced_items, *evidence_decision.topic_items]
+                    ))[:50],
+                })
         except Exception:
             sufficiency = assess_evidence_sufficiency(
                 resolved_query, ranked, request.mode
