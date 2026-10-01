@@ -7,6 +7,7 @@ the API must never need to download language data during application startup.
 from __future__ import annotations
 
 from difflib import get_close_matches
+from math import log1p
 import re
 
 from rank_bm25 import BM25Okapi
@@ -50,7 +51,19 @@ class BM25Index:
         self._chunk_ids = [c.chunk_id for c in chunks]
         tokenized = [tokenize_for_retrieval(c.text) for c in chunks]
         self._vocabulary = {token for chunk_tokens in tokenized for token in chunk_tokens}
-        self._bm25 = BM25Okapi(tokenized) if tokenized else None
+        self._bm25 = BM25Okapi(tokenized) if any(tokenized) else None
+        if self._bm25 is not None:
+            # Positive smoothed IDF keeps real matches searchable even with one
+            # or two passages, where raw Okapi IDF can be zero or negative.
+            document_frequency: dict[str, int] = {}
+            for tokens in tokenized:
+                for token in set(tokens):
+                    document_frequency[token] = document_frequency.get(token, 0) + 1
+            size = len(tokenized)
+            self._bm25.idf = {
+                token: log1p((size - frequency + 0.5) / (frequency + 0.5))
+                for token, frequency in document_frequency.items()
+            }
 
     def _expand_typos(self, query_tokens: list[str]) -> list[str]:
         """Append conservative corpus-vocabulary corrections for misspellings.

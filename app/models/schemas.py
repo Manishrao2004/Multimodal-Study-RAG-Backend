@@ -119,9 +119,12 @@ class ConversationTurn(BaseModel):
     """
 
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
+    content: str = Field(min_length=1, max_length=8000)
 
-    _validate_content = field_validator("content")(_clean_query_text)
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        return validate_query_text(value, max_length=8000)
 
 
 class QuestionPlan(BaseModel):
@@ -135,7 +138,7 @@ class QuestionPlan(BaseModel):
     standalone_query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     referenced_items: list[str] = Field(default_factory=list, max_length=50)
     requested_aspects: list[str] = Field(default_factory=list, max_length=20)
-    response_format: str = Field(default="clear explanation", max_length=500)
+    response_format: str = Field(default="concise student-friendly explanation", max_length=500)
     verification_required: bool = False
     verification_reason: str | None = Field(default=None, max_length=500)
 
