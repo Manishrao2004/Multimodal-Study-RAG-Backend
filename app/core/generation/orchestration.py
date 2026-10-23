@@ -12,6 +12,7 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field
 
 from app.config import Settings
+from app.core.generation.runtime_context import runtime_context
 from app.core.generation.llm_client import LLMClient, LLMConfig
 from app.models.schemas import (
     Chunk,
@@ -60,7 +61,9 @@ def _structured_chain(prompt: ChatPromptTemplate, schema: type[BaseModel], setti
     client = _client(settings)
 
     async def invoke_model(prompt_value):
-        return await client.chat(_provider_messages(prompt_value), temperature=0.0)
+        messages = _provider_messages(prompt_value)
+        messages[0]["content"] += runtime_context()
+        return await client.chat(messages, temperature=0.0)
 
     return prompt | RunnableLambda(invoke_model) | parser
 
