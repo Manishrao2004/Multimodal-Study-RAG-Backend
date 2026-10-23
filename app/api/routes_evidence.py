@@ -6,8 +6,18 @@ from fastapi.responses import FileResponse
 from app.api.deps import get_app_state
 from app.models.schemas import Chunk
 from app.state import AppState
+from app.core.source_files import source_response
 
 router = APIRouter(prefix="/evidence", tags=["evidence"])
+
+
+@router.get("/{chunk_id}/source")
+async def get_evidence_source(chunk_id: str, state: AppState = Depends(get_app_state)):
+    """Open the original file for a known citation, constrained to uploaded files."""
+    chunk = state.kb.get_chunk(chunk_id)
+    if chunk is None:
+        raise HTTPException(status_code=404, detail="Evidence not found.")
+    return source_response(state.settings.upload_dir, chunk.source_file)
 
 
 @router.get("/{chunk_id}", response_model=Chunk)

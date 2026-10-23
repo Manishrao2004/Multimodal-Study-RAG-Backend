@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import unquote
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -16,6 +17,7 @@ from app.api.routes_vision import router as vision_router
 from app.api.routes_conversations import router as conversations_router
 from app.config import get_settings
 from app.state import build_app_state
+from app.core.generation.runtime_context import student_context
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,19 @@ app = FastAPI(
 )
 
 settings = get_settings()
+
+
+@app.middleware("http")
+async def attach_student_context(request: Request, call_next):
+    zone = request.headers.get("X-Student-Timezone", "Asia/Kolkata")[:100]
+    location = unquote(request.headers.get("X-Student-Location", "India"))[:200]
+    token = student_context.set((zone, location))
+    try:
+        return await call_next(request)
+    finally:
+        student_context.reset(token)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -47,6 +62,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Page-Count"],
 )
 
 app.include_router(ingest_router)

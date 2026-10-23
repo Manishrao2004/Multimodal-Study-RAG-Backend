@@ -29,3 +29,5 @@ data/dev-server.*.log
 
 # Personal Claude Code overrides (.claude/settings.json is shared, this isn't)
 .claude/settings.local.json
+
+tests/
