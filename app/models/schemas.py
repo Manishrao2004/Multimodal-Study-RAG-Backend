@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -89,11 +90,67 @@ class RetrievalMode(str, Enum):
     full = "full"  # + HyDE expansion + cross-encoder reranking
 
 
+class AnswerScope(str, Enum):
+    """Student-facing knowledge policy, independent of retrieval ablations."""
+
+    auto = "auto"
+    sources_only = "sources_only"
+    model_only = "model_only"
+
+
+class AnswerBasis(str, Enum):
+    sources = "sources"
+    mixed = "mixed"
+    model = "model"
+
+
+class EvidenceSufficiency(str, Enum):
+    strong = "strong"
+    partial = "partial"
+    insufficient = "insufficient"
+    not_checked = "not_checked"
+
+
+class ConversationTurn(BaseModel):
+    """Recent client-side conversation context for a follow-up question.
+
+    This is deliberately small and is never treated as evidence: it only helps
+    resolve references such as "explain that more simply".
+    """
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        return validate_query_text(value, max_length=8000)
+
+
+class QuestionPlan(BaseModel):
+    """Structured, model-produced interpretation of the student's request.
+
+    It carries conversation resolution and response requirements through the
+    pipeline without embedding topic-specific rules in generation prompts.
+    The plan is organisational metadata, never factual evidence.
+    """
+
+    standalone_query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
+    referenced_items: list[str] = Field(default_factory=list, max_length=50)
+    requested_aspects: list[str] = Field(default_factory=list, max_length=20)
+    response_format: str = Field(default="concise student-friendly explanation", max_length=500)
+    verification_required: bool = False
+    verification_reason: str | None = Field(default=None, max_length=500)
+
+
 class AskRequest(BaseModel):
     query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     top_k: int = Field(default=5, ge=1, le=20)
     mode: RetrievalMode = RetrievalMode.full
     detect_contradictions: bool = True
+    comprehensive: bool = False
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
+    answer_scope: AnswerScope = AnswerScope.auto
 
     _validate_query = field_validator("query")(_clean_query_text)
 
@@ -141,6 +198,13 @@ class AskResponse(BaseModel):
     disagreements: list[Disagreement] = Field(default_factory=list)
     mode: RetrievalMode = RetrievalMode.full
     latency_ms: float | None = None
+    comprehensive: bool = False
+    sources_considered: list[str] = Field(default_factory=list)
+    sources_used: list[str] = Field(default_factory=list)
+    answer_scope: AnswerScope = AnswerScope.auto
+    answer_basis: AnswerBasis = AnswerBasis.sources
+    evidence_sufficiency: EvidenceSufficiency = EvidenceSufficiency.not_checked
+    provenance_notice: str | None = None
 
 
 class ScreenshotAskResponse(BaseModel):

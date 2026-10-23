@@ -8,6 +8,9 @@ chunk are added to the same knowledge base used by document figures.
 from __future__ import annotations
 
 import uuid
+import json
+
+from pydantic import TypeAdapter, ValidationError
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
@@ -29,6 +32,7 @@ from app.core.vision.screenshot import (
 from app.models.schemas import (
     Chunk,
     ChunkType,
+    ConversationTurn,
     EvidenceItem,
     RetrievalMode,
     ScreenshotAskResponse,
@@ -45,9 +49,16 @@ async def ask_about_screenshot(
     use_knowledge_base: bool = Form(True),
     save_to_library: bool = Form(False),
     top_k: int = Form(5, ge=1, le=10),
+    history_json: str = Form("[]", max_length=100000),
     state: AppState = Depends(get_app_state),
 ):
     settings = state.settings
+    try:
+        history = TypeAdapter(list[ConversationTurn]).validate_python(json.loads(history_json))
+        if len(history) > 12:
+            raise ValueError("History must contain at most 12 messages.")
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid conversation history.") from exc
     if settings.vlm_provider == "none":
         raise HTTPException(
             status_code=503,
@@ -106,7 +117,10 @@ async def ask_about_screenshot(
     ranked: list[tuple[Chunk, float]] = [(screenshot_chunk, 1.0), *ranked_kb]
     chunks = [chunk for chunk, _ in ranked]
     try:
-        answer = await generate_answer(clean_question, chunks, settings)
+        if history:
+            answer = await generate_answer(clean_question, chunks, settings, history=history)
+        else:
+            answer = await generate_answer(clean_question, chunks, settings)
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
