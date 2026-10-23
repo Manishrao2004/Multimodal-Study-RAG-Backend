@@ -14,7 +14,6 @@ from app.api.routes_ingest import router as ingest_router
 from app.api.routes_study import router as study_router
 from app.api.routes_vision import router as vision_router
 from app.api.routes_conversations import router as conversations_router
-from app.api.routes_conversations import router as conversations_router
 from app.config import get_settings
 from app.state import build_app_state
 
@@ -56,7 +55,6 @@ app.include_router(evidence_router)
 app.include_router(study_router)
 app.include_router(vision_router)
 app.include_router(documents_router)
-app.include_router(conversations_router)
 app.include_router(conversations_router)
 
 
@@ -109,6 +107,13 @@ async def config():
         },
         "embedding_model": s.embedding_model,
         "reranker_model": s.reranker_model,
+        "capabilities": {
+            "answer_generation": s.llm_provider != "none",
+            "query_expansion": s.hyde_enabled and s.hyde_provider != "none",
+            "diagram_captioning": s.vlm_provider != "none",
+            "audio_transcription": s.asr_provider != "none",
+        },
+        "provider_connectivity_verified": False,
         "retrieval": {
             "bm25_top_k": s.bm25_top_k,
             "faiss_top_k": s.faiss_top_k,

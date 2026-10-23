@@ -77,6 +77,12 @@ uv run uvicorn app.main:app --reload
 Interactive API docs at <http://localhost:8000/docs>; `GET /config` shows which
 models are actually wired up (secrets reported only as present/absent).
 
+`GET /config` also reports enabled capabilities. These flags describe configuration;
+`provider_connectivity_verified: false` means the response does not test provider
+availability. Document uploads report failed diagram captions separately from
+images skipped for lacking educational content, preserving text and successful
+captions when an individual vision request fails.
+
 ---
 
 ## API
