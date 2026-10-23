@@ -9,6 +9,18 @@ import re
 from app.models.schemas import Chunk, Citation
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)]")
+_CITATION_VARIANT_PATTERN = re.compile(r"[【〔［]\s*(\d+)\s*[】〕］]")
+
+
+def normalize_citation_markers(answer_text: str) -> str:
+    """Canonicalize common model-rendered numeric citation brackets.
+
+    Some providers typographically transform ``[1]`` into full-width or
+    ornamental brackets. They carry the same unambiguous passage index and are
+    normalized before rendering and validation so provider typography cannot
+    silently break citation provenance.
+    """
+    return _CITATION_VARIANT_PATTERN.sub(lambda match: f"[{match.group(1)}]", answer_text)
 
 
 def extract_and_validate_citations(answer_text: str, ranked_chunks: list[Chunk]) -> list[Citation]:
@@ -17,7 +29,7 @@ def extract_and_validate_citations(answer_text: str, ranked_chunks: list[Chunk])
     n = len(ranked_chunks)
     citations: list[Citation] = []
     seen: set[int] = set()
-    for match in _CITATION_PATTERN.finditer(answer_text):
+    for match in _CITATION_PATTERN.finditer(normalize_citation_markers(answer_text)):
         marker = int(match.group(1))
         if marker in seen:
             continue

@@ -99,6 +99,28 @@ models are actually wired up (secrets reported only as present/absent).
 `POST /ask` accepts a `mode` for the ablation arms: `bm25_only`, `dense_only`,
 `hybrid`, `full` (default).
 
+It also accepts a student-facing `answer_scope`, independent of those research
+ablations:
+
+- `auto` (default) searches uploaded material first, assesses whether it is
+  sufficient, and returns a source-grounded, visibly mixed, or general-model
+  answer.
+- `sources_only` keeps the original strict RAG policy and refuses to invent
+  details absent from uploaded material.
+- `model_only` bypasses retrieval for general tutoring questions and never
+  presents model knowledge as document evidence.
+
+The response reports `answer_basis`, `evidence_sufficiency`, and a
+`provenance_notice`. Mixed answers separate **From your study material** from
+**Additional explanation**, and document citation markers are allowed only in
+the former section. Conversational follow-ups are rewritten into a complete
+question for both retrieval and generation, including the names of items
+referenced by phrases such as “explain each.” The general-knowledge prompts do
+not claim web verification and avoid definitive jurisdiction-specific or
+current claims without captured evidence. See `ADAPTIVE_HYBRID_PLAN.md` for the
+implementation and evaluation roadmap, including verified web research and
+durable chat storage.
+
 ### Screenshot questions
 
 `POST /vision/ask` accepts multipart form data with an image (`png`, `jpg`,
@@ -265,12 +287,61 @@ internals, without pretending to eliminate the underlying risk.
 uv run pytest
 ```
 
-193 tests; every hosted provider is disabled in the test fixtures, so the suite
+Every hosted provider is disabled in the test fixtures, so the suite
 exercises retrieval, attribution and grounding against a local index. A clean
 machine may download the configured embedding/reranker models and NLTK tokenizer
 data on its first run; subsequent runs use the local caches.
 
 ---
+
+## Persistent conversations
+
+The frontend uses `/conversations` rather than supplying a browser-maintained
+transcript to `/ask`. Conversation state is stored in `conversations.sqlite3`
+next to the knowledge-base database. Full answers, evidence, image analysis,
+citations, provenance, and grounding metadata survive reloads and restarts.
+
+- `GET /conversations`: recent conversation summaries.
+- `POST /conversations`: create a conversation.
+- `GET`, `PATCH`, `DELETE /conversations/{id}`: read, rename, or delete.
+- `POST /conversations/{id}/ask`: submit a text question.
+- `POST /conversations/{id}/vision`: submit an image question as multipart data.
+- `POST /conversations/import`: idempotently migrate older browser history.
+
+Every submission includes a unique `request_id` and the latest `revision`.
+SQLite reserves each turn atomically: concurrent or stale writes return 409;
+retrying a completed request returns the saved conversation without generating
+another answer. Failed requests release their reservation without saving a
+partial turn. Reservations expire after 15 minutes if a worker crashes.
+
+Prompts combine ten recent messages with a rolling memory of older turns,
+bounded to 24,000 characters. Memory preserves learning goals, named concepts,
+corrections, preferences, and image descriptions. If summarization fails,
+bounded transcript excerpts are retained. Complete transcripts remain stored;
+prompt compression can omit details and is not lossless recall. History and
+summaries are context, never document evidence. LangChain continues to handle
+structured question planning and evidence decisions.
+
+Lexical retrieval retains Okapi term-frequency and length normalization but
+uses positive smoothed IDF (`log(1 + (N - df + 0.5)/(df + 0.5))`). This makes
+literal matches searchable in very small libraries, where raw IDF can be zero
+or negative. Retrieval scores and rankings may differ from earlier runs;
+rerun benchmarks when comparing this version with the paper's results.
+
+General-knowledge answers default to concise, student-friendly explanations;
+explicit depth, format, and length requests override that default.
+
+In Auto mode, relevant headings and name-only lists establish topic scope but
+are not treated as complete evidence for an explanation. Missing definitions,
+examples, and descriptions are supplemented from general knowledge in a
+separately labelled section, using the exact topic names from the material.
+Document citations apply only to supported content. My sources remains strict:
+it does not supplement missing information. Requests to list names alone can
+still be answered directly from a heading or list.
+
+This remains a local, single-user application. Conversation IDs and revisions
+provide consistency, not authentication or tenant isolation. A public deployment
+requires authenticated ownership checks on conversations and uploaded sources.
 
 ## Deliberately out of scope
 
