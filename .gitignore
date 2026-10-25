@@ -25,6 +25,12 @@ data/eval/
 
 # Test / tooling caches
 .pytest_cache/
+.uv-cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 data/dev-server.*.log
 
 # Personal Claude Code overrides (.claude/settings.json is shared, this isn't)
@@ -33,3 +39,10 @@ data/dev-server.*.log
 tests/
 
 previews/
+
+# Generated evaluation runs and reports; keep the artifact guide in Git.
+# Source fixtures live in app/eval; the protocol lives in docs.
+/artifacts/*
+!/artifacts/README.md
+/output/
+/tmp/

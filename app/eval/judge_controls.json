@@ -1,0 +1,24 @@
+[
+  {
+    "id": "judge_control_supported",
+    "status": "ok",
+    "query": "What is Meera's monthly profit?",
+    "reference": "Meera's monthly profit is INR 15000.",
+    "retrieved_contexts": ["Meera's monthly profit is INR 15000."],
+    "response": {"answer_basis": "sources", "answer": "Meera's monthly profit is INR 15000."},
+    "expected_faithfulness": 1.0,
+    "expected_factual_correctness": 1.0,
+    "provenance": "synthetic judge calibration control not an application response"
+  },
+  {
+    "id": "judge_control_wrong_number",
+    "status": "ok",
+    "query": "What is Meera's monthly profit?",
+    "reference": "Meera's monthly profit is INR 15000.",
+    "retrieved_contexts": ["Meera's monthly profit is INR 15000."],
+    "response": {"answer_basis": "sources", "answer": "Meera's monthly profit is INR 25000."},
+    "expected_faithfulness": 0.0,
+    "expected_factual_correctness": 0.0,
+    "provenance": "synthetic judge calibration control not an application response"
+  }
+]

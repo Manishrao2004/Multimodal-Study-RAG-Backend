@@ -137,7 +137,10 @@ class QuestionPlan(BaseModel):
 
     standalone_query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     referenced_items: list[str] = Field(default_factory=list, max_length=50)
-    requested_aspects: list[str] = Field(default_factory=list, max_length=20)
+    requested_aspects: list[str] = Field(
+        default_factory=list, max_length=20,
+        description="Only aspects explicitly requested by the student. A generic comparison is ['comparison'], without invented comparison criteria.",
+    )
     response_format: str = Field(default="concise student-friendly explanation", max_length=500)
     verification_required: bool = False
     verification_reason: str | None = Field(default=None, max_length=500)

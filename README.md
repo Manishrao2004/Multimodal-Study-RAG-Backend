@@ -369,10 +369,31 @@ This remains a local, single-user application. Conversation IDs and revisions
 provide consistency, not authentication or tenant isolation. A public deployment
 requires authenticated ownership checks on conversations and uploaded sources.
 
+## Adaptive answer validation
+
+The full evaluation protocol and metric definitions are in
+[Metrics and validation](docs/METRICS_VALIDATION.md). Run the controlled live
+suite without modifying the student knowledge base:
+
+```powershell
+uv sync --group dev --group eval
+uv run python -m pytest app/eval/test_validation.py -q
+uv run python -m app.eval.validate --live --out artifacts/validation
+uv run --group eval python -m app.eval.ragas_eval artifacts/validation/records.json
+uv run python -m app.eval.judge_eval artifacts/validation/records.json
+```
+
+The optional evaluation group includes real Ragas metrics. Set `EVAL_MODEL`,
+`EVAL_BASE_URL`, and `EVAL_API_KEY` to use an independent judge; defaults reuse
+the answer model and disclose this. Reports retain per-case answers, contexts,
+plans, evidence decisions, failures, model versions, and dataset hashes.
+Developer fixtures are regression coverage and require independent human
+review before broader accuracy claims. The legacy answer-context cosine
+proxy is not Ragas faithfulness. Citation ID validity does not establish
+that a cited passage supports its associated claim.
+
 ## Deliberately out of scope
 
-Per the project plan: a dedicated visual embedding model (caption-to-text
-achieves near-perfect visual MRR for far less risk), PostgreSQL + pgvector +
+Per the project plan: a dedicated visual embedding model, PostgreSQL + pgvector +
 Redis + Docker (no accuracy benefit at this corpus scale), real-time streaming
-audio, and LLM-as-judge faithfulness scoring (the paper avoids it for latency
-and comparability).
+audio. LLM judges run in offline evaluation rather than on each student request.

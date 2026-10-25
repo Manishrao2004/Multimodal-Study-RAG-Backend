@@ -51,6 +51,8 @@ class RetrievalScores:
     # aggregate so two arms can be paired for a significance test without
     # re-running retrieval (see app.eval.significance.paired_wilcoxon).
     per_query_reciprocal_rank: list[float] = field(default_factory=list)
+    per_query_retrieved_ids: list[list[str]] = field(default_factory=list)
+    gold_ids: list[str] = field(default_factory=list)
 
     def as_row(self) -> dict:
         return {
@@ -79,12 +81,15 @@ class GenerationScores:
         return {
             "queries": self.queries,
             "BERTScore F1": round(self.bertscore_f1, 4),
+            "Attempted generation queries": self.queries + self.failures,
+            "Generation completion rate": self.queries / (self.queries + self.failures) if self.queries + self.failures else None,
             "BERTScore backend": self.bertscore_backend,
             "ROUGE-L": round(self.rouge_l, 4),
             "Token F1": round(self.token_f1, 4),
-            "Faithfulness": round(self.faithfulness, 4),
+            "Answer context cosine proxy": round(self.faithfulness, 4),
             "Citation Validity Rate": round(self.citation_validity_rate, 4),
             "Citation Coverage": round(self.citation_coverage, 4),
+            "Citation Coverage definition": "fraction of successful answers with any citation; not claim completeness",
             "Token Grounding Ratio": round(self.token_grounding_ratio, 4),
             "Generation failures": self.failures,
         }
@@ -119,6 +124,8 @@ async def evaluate_retrieval(
         recall_at_1=recall_at_k(retrieved_ids, gold_ids, 1),
         recall_at_5=recall_at_k(retrieved_ids, gold_ids, 5),
         per_query_reciprocal_rank=per_query_rr,
+        per_query_retrieved_ids=retrieved_ids,
+        gold_ids=gold_ids,
     )
 
 
@@ -157,6 +164,8 @@ async def evaluate_generation(
     top_k: int = 5,
     concurrency: int = 3,
 ) -> GenerationScores:
+    if concurrency < 1 or top_k < 1:
+        raise ValueError("concurrency and top_k must be positive")
     semaphore = asyncio.Semaphore(concurrency)
     predictions: list[str] = []
     references: list[str] = []
@@ -170,14 +179,14 @@ async def evaluate_generation(
     async def run_one(item: BenchmarkItem) -> None:
         nonlocal failures
         async with semaphore:
-            ranked = await index.retrieve(item.query, top_k=top_k, mode=RetrievalMode.full)
-            if not ranked:
-                async with lock:
-                    failures += 1
-                return
-            chunks = [c for c, _ in ranked]
             try:
+                ranked = await index.retrieve(item.query, top_k=top_k, mode=RetrievalMode.full)
+                if not ranked:
+                    raise ValueError("No retrieved context")
+                chunks = [c for c, _ in ranked]
                 answer = await generate_answer(item.query, chunks, settings)
+                if not answer.strip():
+                    raise ValueError("Empty generated answer")
             except Exception:
                 async with lock:
                     failures += 1
