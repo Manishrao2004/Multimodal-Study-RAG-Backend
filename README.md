@@ -77,6 +77,32 @@ uv run uvicorn app.main:app --reload
 Interactive API docs at <http://localhost:8000/docs>; `GET /config` shows which
 models are actually wired up (secrets reported only as present/absent).
 
+Source viewers use `GET /documents/{source_file}/preview` for indexed content,
+`GET /documents/{source_file}/pages/{page_number}` for bounded PDF page images,
+and `GET /documents/{source_file}/file` for original recordings/files. Original
+file access requires an indexed source and is constrained to the upload directory.
+HTML and Office originals are attachment-only at the API; the UI uses safe
+extracted text instead of navigating to those files. PDF rendering runs in a
+separate process to isolate PDFium from document ingestion.
+
+The pages endpoint also renders DOCX and PPTX originals. It converts their original
+layout to a cached PDF using locally installed Microsoft Word/PowerPoint on
+Windows, or `soffice`/LibreOffice on other deployments. Converted files remain
+local under `data/previews`; no external document service is used. A changed
+source gets a new cache entry. If no converter is installed, the API reports that
+requirement and the UI retains its extracted-text fallback.
+
+Answer generation receives a fresh clock and request-local country/timezone via
+`X-Student-Timezone` and URI-encoded `X-Student-Location` headers. The project
+defaults to India and Asia/Kolkata when headers are absent. Country context guides
+currency and examples; it does not establish current laws, fees, or exchange rates.
+
+`GET /config` also reports enabled capabilities. These flags describe configuration;
+`provider_connectivity_verified: false` means the response does not test provider
+availability. Document uploads report failed diagram captions separately from
+images skipped for lacking educational content, preserving text and successful
+captions when an individual vision request fails.
+
 ---
 
 ## API
