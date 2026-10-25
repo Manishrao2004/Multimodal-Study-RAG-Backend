@@ -31,3 +31,5 @@ data/dev-server.*.log
 .claude/settings.local.json
 
 tests/
+
+previews/
