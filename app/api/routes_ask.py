@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,8 +24,11 @@ from app.core.generation.llm_client import LLMError
 from app.core.generation.orchestration import (
     evaluate_evidence,
     plan_question,
+    validate_evidence_decision,
 )
 from app.core.retrieval.sufficiency import assess_evidence_sufficiency
+from app.core.retrieval.context_expansion import expand_local_context, bound_context
+from app.core.vision.evidence import inspect_retrieved_figures, requires_visual_evidence
 from app.models.schemas import (
     AnswerBasis,
     AnswerScope,
@@ -33,10 +37,18 @@ from app.models.schemas import (
     EvidenceItem,
     EvidenceSufficiency,
     QuestionPlan,
+    ChunkType,
 )
 from app.state import AppState
 
 router = APIRouter(tags=["ask"])
+
+
+def _requires_source_answer(query: str) -> bool:
+    return bool(re.search(
+        r"\baccording to (?:the|my|this|that|uploaded|provided|source|notes|document|pdf)\b|\bas stated in\b|\bmy (?:pdf|notes|document|file)\b"
+        r"|\b(?:this|that|the|provided|uploaded) (?:figure|diagram|table|chart|document|pdf)\b"
+        r"|\bpage\s+\d+\b", query, re.I))
 
 async def _comprehensive_retrieve(request: AskRequest, state: AppState, query: str):
     """Retrieve a compact but source-diverse evidence set for broad questions.
@@ -109,7 +121,19 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     if request.answer_scope == AnswerScope.sources_only and not ranked:
         raise HTTPException(status_code=404, detail="No relevant evidence found.")
 
+    if request.answer_scope == AnswerScope.auto and ranked:
+        kb = getattr(state, "kb", None)
+        if kb is not None and hasattr(kb, "nearby_chunks"):
+            ranked = expand_local_context(ranked, kb)
+    if ranked:
+        ranked = await inspect_retrieved_figures(resolved_query, ranked, settings)
+        if request.answer_scope == AnswerScope.auto:
+            ranked = bound_context(ranked)
+    visual_unavailable = bool(ranked and requires_visual_evidence(resolved_query) and
+                              not any(c.visual_inspection_status == "completed" for c, _ in ranked))
     evidence_decision = None
+    check_status = "not_checked"
+    check_reason = None
     if request.answer_scope == AnswerScope.model_only:
         sufficiency = EvidenceSufficiency.not_checked
     elif request.answer_scope == AnswerScope.auto and ranked:
@@ -117,6 +141,17 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
             evidence_decision = await evaluate_evidence(
                 question_plan, [chunk for chunk, _ in ranked], settings
             )
+            evidence_decision = validate_evidence_decision(question_plan, [c for c, _ in ranked][:8], evidence_decision)
+            check_status = "completed"
+            check_reason = evidence_decision.reason
+            if request.comprehensive and set(sources_considered) - {c.source_file for c, _ in ranked}:
+                evidence_decision.missing_aspects.append("Coverage of every requested source document was not established")
+                evidence_decision.needs_background = True
+            if visual_unavailable:
+                evidence_decision.missing_aspects.append("Requested visual details could not be verified from the actual figure")
+                evidence_decision.needs_background = True
+                if evidence_decision.sufficiency == EvidenceSufficiency.strong:
+                    evidence_decision.sufficiency = EvidenceSufficiency.partial
             sufficiency = evidence_decision.sufficiency
             if evidence_decision.topic_relevant and evidence_decision.needs_background:
                 sufficiency = EvidenceSufficiency.partial
@@ -126,10 +161,15 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
                         [*question_plan.referenced_items, *evidence_decision.topic_items]
                     ))[:50],
                 })
+            if evidence_decision.missing_aspects:
+                check_reason = "Source coverage is incomplete. Missing: " + "; ".join(evidence_decision.missing_aspects)
         except Exception:
-            sufficiency = assess_evidence_sufficiency(
-                resolved_query, ranked, request.mode
-            )
+            # Keyword overlap and reranker relevance cannot prove answerability.
+            # Never upgrade a failed semantic check to a source-grounded answer.
+            sufficiency = EvidenceSufficiency.insufficient
+            evidence_decision = None
+            check_status = "unavailable"
+            check_reason = "Source support could not be assessed. Retrieval relevance is not proof of support."
     else:
         sufficiency = assess_evidence_sufficiency(
             resolved_query, ranked, request.mode
@@ -152,9 +192,25 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     else:
         basis = AnswerBasis.sources
 
+    supported_ids = None
+    if request.answer_scope == AnswerScope.auto and evidence_decision is not None:
+        supported_ids = {s.chunk_id for s in evidence_decision.supports}
+        for c, _ in ranked:
+            if c.type == ChunkType.visual and c.visual_inspection_status != "completed":
+                continue
+            text = " ".join(c.text.casefold().split())
+            if any(" ".join(item.casefold().split()) in text for item in evidence_decision.topic_items):
+                supported_ids.add(c.chunk_id)
+        if not supported_ids:
+            sufficiency = EvidenceSufficiency.insufficient
+            basis = AnswerBasis.model
+            check_reason = "No traceable source support survived validation."
+
     # Irrelevant passages must not appear beside a model-only answer: doing so
     # would imply provenance that the answer did not actually use.
     answer_ranked = ranked if basis != AnswerBasis.model else []
+    if supported_ids is not None:
+        answer_ranked = [(c, score) for c, score in answer_ranked if c.chunk_id in supported_ids]
     chunks = [chunk for chunk, _ in answer_ranked]
     scores_by_id = {chunk.chunk_id: score for chunk, score in ranked}
 
@@ -167,11 +223,17 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         except Exception:
             disagreements = []  # never fail a query over the optional feature
 
+    source_abstained = False
     try:
         if basis == AnswerBasis.model:
-            answer = await generate_general_answer(
-                resolved_query, settings, history=request.history, plan=question_plan
-            )
+            if _requires_source_answer(request.query + " " + resolved_query):
+                source_abstained = True
+                answer = "I couldn't verify the uploaded material, so I can't establish what that source says or shows about this question."
+            else:
+                options = {"history": request.history, "plan": question_plan}
+                if check_status == "unavailable":
+                    options["evidence_limitation"] = check_reason
+                answer = await generate_general_answer(resolved_query, settings, **options)
         elif basis == AnswerBasis.mixed:
             answer = await generate_mixed_answer(
                 resolved_query,
@@ -229,11 +291,17 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
             "is separated and is not represented as document evidence."
         ),
         AnswerBasis.model: (
-            "No sufficiently relevant uploaded evidence was used. This answer comes "
+            "No uploaded evidence with validated support was used. This answer comes "
             "from general model knowledge and has not been verified by web research."
         ),
     }
     provenance_notice = notices[basis]
+    if check_status == "unavailable":
+        provenance_notice = "Uploaded-source support could not be assessed. This answer is general knowledge; file-specific claims remain unverified."
+    elif visual_unavailable:
+        provenance_notice += " The requested visual details could not be verified from the actual figure; caption text alone does not establish them."
+    if source_abstained:
+        provenance_notice = "No source-specific answer was generated because supporting material could not be verified."
     if question_plan.verification_required:
         reason = question_plan.verification_reason or "authoritative external evidence is required"
         provenance_notice += f" Verification note: {reason}."
@@ -260,4 +328,8 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         answer_basis=basis,
         evidence_sufficiency=sufficiency,
         provenance_notice=provenance_notice,
+        evidence_check_status=check_status,
+        evidence_check_reason=check_reason,
+        supported_aspects=evidence_decision.covered_aspects if evidence_decision else [],
+        missing_aspects=evidence_decision.missing_aspects if evidence_decision else [],
     )

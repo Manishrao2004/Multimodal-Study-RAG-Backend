@@ -109,6 +109,20 @@ class KnowledgeBase:
             ).fetchall()
         return [self._row_to_chunk(row) for row in rows]
 
+    def nearby_chunks(self, chunk: Chunk, limit: int = 2) -> list[Chunk]:
+        """Same-source neighboring pages only; never scan/load the full corpus."""
+        if chunk.page_number is None or limit < 1:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM chunks WHERE source_file = ? AND chunk_id != ? "
+                "AND page_number BETWEEN ? AND ? "
+                "ORDER BY ABS(page_number - ?), rowid LIMIT ?",
+                (chunk.source_file, chunk.chunk_id, max(1, chunk.page_number - 1),
+                 chunk.page_number + 1, chunk.page_number, min(limit, 4)),
+            ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
     def count(self) -> int:
         with self._connect() as conn:
             (n,) = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()

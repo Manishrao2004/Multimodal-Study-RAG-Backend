@@ -34,6 +34,7 @@ class Chunk(BaseModel):
     chunk_length: int
     type: ChunkType
     image_ref: str | None = None
+    visual_inspection_status: Literal["completed", "unavailable"] | None = None
     # Audio chunks carry their position in the recording instead of a page.
     timestamp_start: float | None = None
     timestamp_end: float | None = None
@@ -208,6 +209,10 @@ class AskResponse(BaseModel):
     answer_basis: AnswerBasis = AnswerBasis.sources
     evidence_sufficiency: EvidenceSufficiency = EvidenceSufficiency.not_checked
     provenance_notice: str | None = None
+    evidence_check_status: Literal["completed", "unavailable", "not_checked"] = "not_checked"
+    evidence_check_reason: str | None = None
+    supported_aspects: list[str] = Field(default_factory=list)
+    missing_aspects: list[str] = Field(default_factory=list)
 
 
 class ScreenshotAskResponse(BaseModel):

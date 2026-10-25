@@ -77,17 +77,33 @@ async def run_live(data: dict, out: Path, resume: bool = False) -> list[dict]:
     out.mkdir(parents=True, exist_ok=True)
     tracked_sources = [Path(__file__), Path(__file__).parents[1] / "api/routes_ask.py",
                        Path(__file__).parents[1] / "core/generation/orchestration.py",
-                       Path(__file__).parents[1] / "core/generation/answer.py"]
+                       Path(__file__).parents[1] / "core/generation/answer.py",
+                       *[Path(__file__).parents[1] / name for name in (
+                           "config.py", "models/schemas.py", "db/knowledge_base.py",
+                           "core/generation/llm_client.py", "core/retrieval/sufficiency.py",
+                           "core/retrieval/context_expansion.py", "core/vision/evidence.py",
+                           "core/vision/screenshot.py")]]
     manifest = {"started_utc": datetime.now(timezone.utc).isoformat(),
                 "source_sha256": {p.as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked_sources},
                 "context": {"timezone": "Asia/Kolkata", "country": "India"},
                 "contradictions_enabled": False, "fixed_contexts": True}
+    manifest["routing_configuration"] = {
+        "answer_endpoint_sha256": hashlib.sha256(settings.llm_base_url.encode()).hexdigest(),
+        "evidence_check_timeout_seconds": settings.evidence_check_timeout_seconds,
+        "visual_query_enabled": settings.visual_query_enabled,
+        "visual_query_max_figures": settings.visual_query_max_figures,
+        "visual_query_timeout_seconds": settings.visual_query_timeout_seconds,
+        "vlm_provider": settings.vlm_provider, "vlm_model": settings.vlm_model,
+        "vision_endpoint_sha256": hashlib.sha256(settings.vlm_base_url.encode()).hexdigest(),
+    }
     previous = {}
     if resume and (out / "records.json").exists():
         old_data = json.loads((out / "cases.json").read_text(encoding="utf-8"))
         old_manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
         if old_data != data:
             raise ValueError("Cannot resume a changed dataset")
+        if old_manifest.get("routing_configuration") != manifest["routing_configuration"]:
+            raise ValueError("Cannot resume a changed evidence routing configuration")
         # Harness changes may add bookkeeping, but successful answers must stay
         # tied to the exact same production prompts and handler.
         for path, digest in manifest["source_sha256"].items():

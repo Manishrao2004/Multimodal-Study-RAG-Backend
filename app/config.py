@@ -6,6 +6,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+from pydantic import Field
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
@@ -41,6 +43,7 @@ class Settings(BaseSettings):
     llm_model: str = "gemma2:9b"
     llm_base_url: str = "http://localhost:11434"
     llm_api_key: str = ""
+    evidence_check_timeout_seconds: float = Field(default=25, ge=1, le=60)
 
     hyde_provider: str = "ollama"
     hyde_model: str = "deepseek-r1:1.5b"
@@ -53,6 +56,9 @@ class Settings(BaseSettings):
     vlm_model: str = "llava-phi3"
     vlm_base_url: str = "http://localhost:11434"
     vlm_api_key: str = ""
+    visual_query_enabled: bool = True
+    visual_query_timeout_seconds: float = Field(default=25, ge=1, le=60)
+    visual_query_max_figures: int = Field(default=1, ge=0, le=2)
 
     # Figure filtering before captioning (EduRAG Sec. III-A: size / aspect-ratio
     # filters drop icons, rules, and logos; perceptual hashing drops repeats of
