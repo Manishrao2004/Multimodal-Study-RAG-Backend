@@ -37,6 +37,8 @@ data/dev-server.*.log
 .claude/settings.local.json
 
 tests/
+!/app/tests/
+!/app/tests/*.py
 
 previews/
 

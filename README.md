@@ -371,6 +371,8 @@ requires authenticated ownership checks on conversations and uploaded sources.
 
 ## Adaptive answer validation
 
+Auto mode now requires traceable aspect support and uses conservative failure handling for text, tables and figures. See [Evidence support and conservative answering](docs/EVIDENCE_SAFETY.md) for the implementation, API budgets and limitations. Run `uv run pytest app/tests app/eval -q` for local tests without provider calls. The saved live metrics predate this change and are not new accuracy measurements.
+
 The full evaluation protocol and metric definitions are in
 [Metrics and validation](docs/METRICS_VALIDATION.md). Run the controlled live
 suite without modifying the student knowledge base:
