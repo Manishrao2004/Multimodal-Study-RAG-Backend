@@ -23,6 +23,12 @@ dependencies = [
 ]
 
 [dependency-groups]
+eval = [
+    "ragas>=0.4,<0.5",
+    "openai>=1.0,<3",
+    # Ragas 0.4 imports legacy VertexAI modules removed in community 0.4.
+    "langchain-community>=0.3.31,<0.4",
+]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",

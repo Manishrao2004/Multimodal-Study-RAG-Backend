@@ -1,0 +1,21 @@
+name: Evaluation regression
+on:
+  pull_request:
+    paths:
+      - 'app/eval/**'
+      - 'app/core/generation/**'
+      - 'app/api/routes_ask.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/evaluation.yml'
+  workflow_dispatch:
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - name: Validate metric contracts without API credentials
+        run: uv run --no-project --with pytest --with pytest-asyncio --with pydantic python -m pytest app/eval -q
