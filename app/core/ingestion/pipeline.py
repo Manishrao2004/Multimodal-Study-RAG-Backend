@@ -144,12 +144,8 @@ async def _ingest_document(file_path: Path, settings: Settings) -> IngestResult:
         )
         return result
 
-    captions = await caption_figures(figures, settings)
+    captions = await caption_figures(figures, settings, warnings=result.warnings)
     result.figures_captioned = len(captions)
-    if len(captions) < len(figures):
-        result.warnings.append(
-            f"{len(figures) - len(captions)} figure(s) were skipped or failed captioning."
-        )
 
     for figure in figures:
         caption = captions.get(figure.index)

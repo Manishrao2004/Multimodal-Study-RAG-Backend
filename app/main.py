@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import unquote
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,9 +15,9 @@ from app.api.routes_ingest import router as ingest_router
 from app.api.routes_study import router as study_router
 from app.api.routes_vision import router as vision_router
 from app.api.routes_conversations import router as conversations_router
-from app.api.routes_conversations import router as conversations_router
 from app.config import get_settings
 from app.state import build_app_state
+from app.core.generation.runtime_context import student_context
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,19 @@ app = FastAPI(
 )
 
 settings = get_settings()
+
+
+@app.middleware("http")
+async def attach_student_context(request: Request, call_next):
+    zone = request.headers.get("X-Student-Timezone", "Asia/Kolkata")[:100]
+    location = unquote(request.headers.get("X-Student-Location", "India"))[:200]
+    token = student_context.set((zone, location))
+    try:
+        return await call_next(request)
+    finally:
+        student_context.reset(token)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -48,6 +62,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Page-Count"],
 )
 
 app.include_router(ingest_router)
@@ -56,7 +71,6 @@ app.include_router(evidence_router)
 app.include_router(study_router)
 app.include_router(vision_router)
 app.include_router(documents_router)
-app.include_router(conversations_router)
 app.include_router(conversations_router)
 
 
@@ -109,6 +123,13 @@ async def config():
         },
         "embedding_model": s.embedding_model,
         "reranker_model": s.reranker_model,
+        "capabilities": {
+            "answer_generation": s.llm_provider != "none",
+            "query_expansion": s.hyde_enabled and s.hyde_provider != "none",
+            "diagram_captioning": s.vlm_provider != "none",
+            "audio_transcription": s.asr_provider != "none",
+        },
+        "provider_connectivity_verified": False,
         "retrieval": {
             "bm25_top_k": s.bm25_top_k,
             "faiss_top_k": s.faiss_top_k,

@@ -14,6 +14,7 @@ import json
 import re
 
 from app.config import Settings
+from app.core.generation.runtime_context import runtime_context
 from app.core.generation.answer import build_client, format_context
 from app.core.generation.duplicates import dedupe
 from app.models.schemas import Chunk, QuizFormat, QuizItem
@@ -114,7 +115,7 @@ def _parse_marker(value: object) -> int | None:
 
 async def generate_summary(topic: str, chunks: list[Chunk], settings: Settings) -> str:
     messages = [
-        {"role": "system", "content": _SUMMARY_PROMPT},
+        {"role": "system", "content": _SUMMARY_PROMPT + runtime_context()},
         {
             "role": "user",
             "content": f"Passages:\n\n{format_context(chunks)}\n\nTopic to summarise: {topic}",
@@ -136,7 +137,7 @@ async def generate_comparison(
     combined = chunks_a + chunks_b
     context = format_context(combined)
     messages = [
-        {"role": "system", "content": _COMPARE_PROMPT},
+        {"role": "system", "content": _COMPARE_PROMPT + runtime_context()},
         {
             "role": "user",
             "content": (
@@ -168,7 +169,7 @@ async def generate_quiz(
         format_instructions=_QUIZ_FORMAT_INSTRUCTIONS[quiz_format], count=count
     )
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt + runtime_context()},
         {
             "role": "user",
             "content": (

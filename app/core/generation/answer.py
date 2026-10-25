@@ -20,6 +20,7 @@ import asyncio
 import logging
 
 from app.config import Settings
+from app.core.generation.runtime_context import runtime_context
 from app.core.generation.llm_client import LLMClient, LLMConfig, strip_think_tags
 from app.core.security import detect_injection_signals, neutralize_prompt_markers
 from app.models.schemas import (
@@ -76,6 +77,10 @@ _STUDENT_RESPONSE_STYLE = (
     "\n\nSTUDENT RESPONSE STYLE:\n"
     "- Lead with the direct answer in the first sentence. Use natural, clear language "
     "that a student can understand on a first reading. Explain necessary technical terms.\n"
+    "- Start with the plain-language idea before formal terminology. Define symbols and "
+    "units before using a formula. Break difficult reasoning into small steps; use a "
+    "familiar example when helpful and supported by the selected knowledge scope. "
+    "Respect the student's stated level and never assume advanced prerequisites.\n"
     "- Match the latest request's scope. A simple definition or follow-up usually needs "
     "2-5 sentences; an ordinary explanation usually needs 1-3 short paragraphs. Aim for "
     "80-180 words by default, and use fewer words when they are enough.\n"
@@ -258,7 +263,7 @@ async def generate_answer(
     user_content = _history_block(history) + _plan_block(plan) + user_content
 
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "system", "content": _SYSTEM_PROMPT + _STUDENT_RESPONSE_STYLE + runtime_context()},
         {"role": "user", "content": user_content},
     ]
     return await build_client(settings).chat(messages, temperature=0.1)
@@ -297,7 +302,7 @@ async def generate_mixed_answer(
     grounded, supplemental = await asyncio.gather(
         client.chat(
             [
-                {"role": "system", "content": _SYSTEM_PROMPT + (
+                {"role": "system", "content": _SYSTEM_PROMPT + _STUDENT_RESPONSE_STYLE + runtime_context() + (
                     "\nThis is the uploaded-material portion of a mixed answer. "
                     "State only what the passages support. If they only name topics, "
                     "give the relevant names with citations concisely; a separate "
@@ -313,7 +318,7 @@ async def generate_mixed_answer(
         ),
         client.chat(
             [
-                {"role": "system", "content": _MIXED_SYSTEM_PROMPT},
+                {"role": "system", "content": _MIXED_SYSTEM_PROMPT + runtime_context()},
                 {"role": "user", "content": supplemental_content},
             ],
             temperature=0.15,
@@ -341,7 +346,7 @@ async def generate_general_answer(
     )
     return await build_client(settings).chat(
         [
-            {"role": "system", "content": _GENERAL_SYSTEM_PROMPT},
+            {"role": "system", "content": _GENERAL_SYSTEM_PROMPT + runtime_context()},
             {"role": "user", "content": user_content},
         ],
         temperature=0.2,
