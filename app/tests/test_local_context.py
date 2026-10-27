@@ -1,3 +1,4 @@
+from app.models.schemas import ChunkType
 from app.core.retrieval.context_expansion import expand_local_context, bound_context
 from app.db.knowledge_base import KnowledgeBase
 from app.tests.conftest import chunk
@@ -29,3 +30,17 @@ def test_no_duplicate_neighbors_and_a_bounded_context(settings):
     assert sum(len(c.text) for c, _ in bounded) <= 16000
     assert all(len(c.text) <= 4000 for c, _ in bounded)
     assert large[0][0].text == "x" * 10000
+
+
+def test_same_page_figure_is_not_crowded_out_by_text_neighbors(settings):
+    kb = KnowledgeBase(settings.kb_db_path)
+    top = chunk("Functional organization is...", chunk_id="top")
+    texts = [chunk(f"filler {i}", chunk_id=f"t{i}") for i in range(3)]
+    figure = chunk("An organizational chart ...", chunk_id="fig").model_copy(
+        update={"type": ChunkType.visual, "image_ref": "fig.png"})
+    other_page = figure.model_copy(update={"chunk_id": "fig2", "page_number": 9})
+    kb.add_chunks([top, *texts, figure, other_page])
+    expanded = expand_local_context([(top, .9)], kb)
+    ids = [c.chunk_id for c, _ in expanded]
+    assert "fig" in ids and "fig2" not in ids
+    assert ids.index("fig") == 1

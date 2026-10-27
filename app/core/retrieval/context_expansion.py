@@ -5,6 +5,16 @@ from app.models.schemas import ChunkType
 def expand_local_context(ranked, kb, *, limit=8):
     selected = list(ranked[:limit])
     seen = {chunk.chunk_id for chunk, _ in selected}
+    # A definition and the diagram that illustrates it share a page but rarely
+    # share vocabulary, so retrieval alone misses the figure. Reserve a slot for
+    # the same-page figure before generic neighbours can crowd it out.
+    for chunk, _ in ranked[:2]:
+        if chunk.page_number is None or len(selected) >= limit:
+            continue
+        for figure in kb.figures_on_page(chunk, limit=1):
+            if figure.chunk_id not in seen:
+                selected.append((figure, 0.0))
+                seen.add(figure.chunk_id)
     for chunk, _ in ranked[:2]:
         if chunk.page_number is None or len(selected) >= limit:
             continue

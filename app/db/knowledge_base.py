@@ -123,6 +123,18 @@ class KnowledgeBase:
             ).fetchall()
         return [self._row_to_chunk(row) for row in rows]
 
+    def figures_on_page(self, chunk: Chunk, limit: int = 1) -> list[Chunk]:
+        """Captioned figures on the exact page of `chunk` (same source only)."""
+        if chunk.page_number is None or limit < 1:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM chunks WHERE source_file = ? AND page_number = ? "
+                "AND type = 'visual' AND chunk_id != ? ORDER BY rowid LIMIT ?",
+                (chunk.source_file, chunk.page_number, chunk.chunk_id, min(limit, 3)),
+            ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
     def count(self) -> int:
         with self._connect() as conn:
             (n,) = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()
