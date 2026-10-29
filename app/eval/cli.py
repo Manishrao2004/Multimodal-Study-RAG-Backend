@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from dataclasses import asdict
+from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 
@@ -168,7 +171,14 @@ async def _run(args: argparse.Namespace) -> None:
         print("\nRunning generation evaluation (this calls the LLM once per query)…")
         generation = await evaluate_generation(items, state.retrieval, settings)
         sections.append("\n## Generation & grounding (full system)\n")
-        sections.append(_markdown_table([generation.as_row()]))
+        sections.append(_markdown_table([
+            {"metric": key, "value": value} for key, value in generation.as_row().items()
+        ]))
+        sections.append(
+            "\nThe answer context cosine proxy measures embedding similarity, not claim entailment or Ragas faithfulness. "
+            "Citation Coverage counts answers with any marker; it does not measure completeness of claim citations. "
+            "Generation means exclude failed requests; report failures alongside these conditional scores.\n"
+        )
         if generation.bertscore_backend == "embedding-cosine":
             sections.append(
                 "\n> **Note:** `bert-score` is not installed, so the BERTScore column "
@@ -188,7 +198,23 @@ async def _run(args: argparse.Namespace) -> None:
     if args.json:
         json_path = Path(args.json)
         json_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"ablation": [s.as_row() for s in ablation]}
+        payload = {
+            "created_utc": datetime.now(timezone.utc).isoformat(),
+            "benchmark_sha256": hashlib.sha256(benchmark_path.read_bytes()).hexdigest(),
+            "benchmark_queries": [asdict(item) for item in items],
+            "corpus_chunks": state.kb.count(),
+            "corpus_documents": len(state.kb.list_documents()),
+            "corpus_sha256": hashlib.sha256(json.dumps(
+                [chunk.model_dump(mode="json") for chunk in sorted(state.kb.all_chunks(), key=lambda c: c.chunk_id)],
+                sort_keys=True,
+            ).encode()).hexdigest(),
+            "models": {"answer": settings.llm_model, "hyde": settings.hyde_model,
+                       "hyde_enabled": settings.hyde_enabled, "embedding": settings.embedding_model,
+                       "reranker": settings.reranker_model},
+            "ablation": [{**s.as_row(), "per_query_rr": s.per_query_reciprocal_rank,
+                          "retrieved_ids": s.per_query_retrieved_ids, "gold_ids": s.gold_ids} for s in ablation],
+            "significance": [asdict(s) for s in significance],
+        }
         if not args.skip_generation:
             payload["generation"] = generation.as_row()
         json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

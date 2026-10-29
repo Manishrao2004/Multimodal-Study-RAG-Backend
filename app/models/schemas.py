@@ -34,6 +34,7 @@ class Chunk(BaseModel):
     chunk_length: int
     type: ChunkType
     image_ref: str | None = None
+    visual_inspection_status: Literal["completed", "unavailable"] | None = None
     # Audio chunks carry their position in the recording instead of a page.
     timestamp_start: float | None = None
     timestamp_end: float | None = None
@@ -137,7 +138,10 @@ class QuestionPlan(BaseModel):
 
     standalone_query: str = Field(min_length=1, max_length=_MAX_QUERY_LENGTH)
     referenced_items: list[str] = Field(default_factory=list, max_length=50)
-    requested_aspects: list[str] = Field(default_factory=list, max_length=20)
+    requested_aspects: list[str] = Field(
+        default_factory=list, max_length=20,
+        description="Only aspects explicitly requested by the student. A generic comparison is ['comparison'], without invented comparison criteria.",
+    )
     response_format: str = Field(default="concise student-friendly explanation", max_length=500)
     verification_required: bool = False
     verification_reason: str | None = Field(default=None, max_length=500)
@@ -205,6 +209,10 @@ class AskResponse(BaseModel):
     answer_basis: AnswerBasis = AnswerBasis.sources
     evidence_sufficiency: EvidenceSufficiency = EvidenceSufficiency.not_checked
     provenance_notice: str | None = None
+    evidence_check_status: Literal["completed", "unavailable", "not_checked"] = "not_checked"
+    evidence_check_reason: str | None = None
+    supported_aspects: list[str] = Field(default_factory=list)
+    missing_aspects: list[str] = Field(default_factory=list)
 
 
 class ScreenshotAskResponse(BaseModel):
