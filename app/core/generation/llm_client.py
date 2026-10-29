@@ -49,6 +49,7 @@ class LLMConfig:
     timeout: float = 120.0
     max_retries: int = 4
     backoff_base: float = 2.0
+    max_output_tokens: int | None = None
 
 
 def parse_retry_after(response: httpx.Response) -> float | None:
@@ -112,6 +113,8 @@ class LLMClient:
             "stream": False,
             "options": {"temperature": temperature},
         }
+        if self.config.max_output_tokens is not None:
+            payload["options"]["num_predict"] = self.config.max_output_tokens
         data = await self._post(url, payload, headers={})
         return data["message"]["content"]
 
@@ -125,6 +128,8 @@ class LLMClient:
             "messages": messages,
             "temperature": temperature,
         }
+        if self.config.max_output_tokens is not None:
+            payload["max_tokens"] = self.config.max_output_tokens
         data = await self._post(url, payload, headers)
         return data["choices"][0]["message"]["content"]
 
