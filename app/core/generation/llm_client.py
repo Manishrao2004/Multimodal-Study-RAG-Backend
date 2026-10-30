@@ -50,6 +50,9 @@ class LLMConfig:
     max_retries: int = 4
     backoff_base: float = 2.0
     max_output_tokens: int | None = None
+    # Optional fallback provider tried once when the primary exhausts retries
+    # on 429 rate-limit errors (e.g. Groq free tier → OpenRouter).
+    fallback: "LLMConfig | None" = None
 
 
 def parse_retry_after(response: httpx.Response) -> float | None:
@@ -123,6 +126,10 @@ class LLMClient:
         headers = {}
         if self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
+        # OpenRouter requires identification headers for free-tier routing.
+        if "openrouter.ai" in self.config.base_url:
+            headers["HTTP-Referer"] = "http://localhost:8000"
+            headers["X-Title"] = "Multimodal-Study-RAG"
         payload = {
             "model": self.config.model,
             "messages": messages,
@@ -130,7 +137,19 @@ class LLMClient:
         }
         if self.config.max_output_tokens is not None:
             payload["max_tokens"] = self.config.max_output_tokens
-        data = await self._post(url, payload, headers)
+        try:
+            data = await self._post(url, payload, headers)
+        except LLMError as primary_err:
+            fb = self.config.fallback
+            if fb is None or "429" not in str(primary_err):
+                raise
+            # Primary exhausted retries on rate-limit → try fallback once.
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Primary LLM rate-limited (%s/%s); switching to fallback %s/%s",
+                self.config.provider, self.config.model, fb.provider, fb.model,
+            )
+            return await LLMClient(fb).chat(messages, temperature)
         return data["choices"][0]["message"]["content"]
 
     async def _post(self, url: str, payload: dict, headers: dict) -> dict:

@@ -1,0 +1,401 @@
+{
+  "version": "asqa-benchmark-v1",
+  "annotation_status": "ASQA-derived evaluation cases; not independently reviewed or a publication test set",
+  "passages": [
+    {
+      "id": "asqa_p_jc_t2",
+      "source": "asqa_wikipedia_terminator.txt",
+      "text": "In Terminator 2: Judgment Day (1991), the character of John Connor as a boy of ten was played by actor Edward Furlong. Michael Edwards appeared briefly as an adult John Connor in the opening flash-forward war sequence."
+    },
+    {
+      "id": "asqa_p_jc_t3",
+      "source": "asqa_wikipedia_terminator.txt",
+      "text": "Nick Stahl portrayed John Connor in Terminator 3: Rise of the Machines (2003), depicting Connor as a 22-year-old living off the grid following his mother's death."
+    },
+    {
+      "id": "asqa_p_jc_ts",
+      "source": "asqa_wikipedia_terminator.txt",
+      "text": "Christian Bale played the role of John Connor in Terminator Salvation (2009), which takes place in 2018 during the Resistance war against Skynet."
+    },
+    {
+      "id": "asqa_p_jc_tg",
+      "source": "asqa_wikipedia_terminator.txt",
+      "text": "Jason Clarke was cast as John Connor in Terminator Genisys (2015), in which Connor is compromised by Skynet and transformed into the nanotechnical cyborg T-3000."
+    },
+    {
+      "id": "asqa_p_pk_jp",
+      "source": "asqa_wikipedia_pokemon.txt",
+      "text": "The original Pokemon anime series, titled 'Pocket Monsters' in Japan, premiered its very first episode ('Pokemon - I Choose You!') on TV Tokyo on April 1, 1997."
+    },
+    {
+      "id": "asqa_p_pk_us",
+      "source": "asqa_wikipedia_pokemon.txt",
+      "text": "The English-language adaptation produced by 4Kids Entertainment debuted in the United States on September 8, 1998, in first-run television syndication before moving to the Kids' WB block in early 1999."
+    },
+    {
+      "id": "asqa_p_sa_pretoria",
+      "source": "asqa_wikipedia_south_africa.txt",
+      "text": "Pretoria is the administrative and executive capital of South Africa, serving as the seat of the President of South Africa and the national Cabinet."
+    },
+    {
+      "id": "asqa_p_sa_bloemfontein",
+      "source": "asqa_wikipedia_south_africa.txt",
+      "text": "Bloemfontein serves as the judicial capital of South Africa, hosting the Supreme Court of Appeal. The Constitutional Court sits separately in Johannesburg."
+    },
+    {
+      "id": "asqa_p_sa_capetown",
+      "source": "asqa_wikipedia_south_africa.txt",
+      "text": "Cape Town is the legislative capital of South Africa, home to the national Parliament, including the National Assembly and the National Council of Provinces."
+    },
+    {
+      "id": "asqa_p_hal_cohen",
+      "source": "asqa_wikipedia_music.txt",
+      "text": "'Hallelujah' is a song written by Canadian singer Leonard Cohen, originally released on his 1984 studio album Various Positions. Cohen reportedly wrote as many as 80 different drafts of the song."
+    },
+    {
+      "id": "asqa_p_hal_buckley",
+      "source": "asqa_wikipedia_music.txt",
+      "text": "American singer-songwriter Jeff Buckley recorded an acclaimed cover of 'Hallelujah' for his only completed studio album, Grace (1994), inspired by an earlier 1991 recording by John Cale."
+    },
+    {
+      "id": "asqa_p_off_uk",
+      "source": "asqa_wikipedia_television.txt",
+      "text": "The British version of The Office was broadcast on BBC Two from 2001 to 2003, comprising two six-episode series and a two-part 2003 Christmas special, totaling 14 episodes."
+    },
+    {
+      "id": "asqa_p_off_us",
+      "source": "asqa_wikipedia_television.txt",
+      "text": "The American adaptation of The Office aired on NBC from March 24, 2005, to May 16, 2013, spanning nine seasons and 201 episodes starring Steve Carell as Michael Scott."
+    },
+    {
+      "id": "asqa_p_sound_air",
+      "source": "asqa_wikipedia_acoustics.txt",
+      "text": "In dry air at 20 \u00b0C (68 \u00b0F) at sea level, the speed of sound is approximately 343 meters per second (1,125 ft/s; 1,235 km/h; 767 mph)."
+    },
+    {
+      "id": "asqa_p_sound_water",
+      "source": "asqa_wikipedia_acoustics.txt",
+      "text": "In fresh water at room temperature (20 \u00b0C), sound travels significantly faster at approximately 1,482 meters per second due to the higher bulk modulus of the liquid."
+    },
+    {
+      "id": "asqa_p_sound_solid",
+      "source": "asqa_wikipedia_acoustics.txt",
+      "text": "In dense elastic solids like structural carbon steel, longitudinal sound waves travel at roughly 5,120 meters per second."
+    },
+    {
+      "id": "asqa_p_uw_seattle",
+      "source": "asqa_wikipedia_universities.txt",
+      "text": "The main campus of the University of Washington is situated in Seattle, Washington, occupying over 700 acres in the city's University District overlooking Portage Bay and Lake Washington."
+    },
+    {
+      "id": "asqa_p_uw_branches",
+      "source": "asqa_wikipedia_universities.txt",
+      "text": "In 1990, the University of Washington founded two permanent branch campuses to expand higher education access: UW Bothell located in Bothell, Washington, and UW Tacoma located in downtown Tacoma, Washington."
+    },
+    {
+      "id": "asqa_p_eiffel_time",
+      "source": "asqa_wikipedia_landmarks.txt",
+      "text": "Construction of the Eiffel Tower began on January 28, 1887, and was completed on March 31, 1889, taking two years, two months, and five days to serve as the centerpiece of the 1889 Exposition Universelle."
+    },
+    {
+      "id": "asqa_p_eiffel_designer",
+      "source": "asqa_wikipedia_landmarks.txt",
+      "text": "The structural design of the tower was conceived by civil engineers Maurice Koechlin and \u00c9mile Nouguier. Although named after entrepreneur Gustave Eiffel, architect Stephen Sauvestre contributed the decorative arches at the base."
+    }
+  ],
+  "cases": [
+    {
+      "id": "asqa_john_connor",
+      "group": "asqa_benchmark",
+      "query": "Who played John Connor in Terminator?",
+      "initial_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Terminator 2: Judgment Day": "supported",
+        "Terminator 3: Rise of the Machines": "supported",
+        "Terminator Salvation": "supported",
+        "Terminator Genisys": "supported"
+      },
+      "reference": "John Connor was portrayed by Edward Furlong in Terminator 2 (1991), Nick Stahl in Terminator 3 (2003), Christian Bale in Terminator Salvation (2009), and Jason Clarke in Terminator Genisys (2015)."
+    },
+    {
+      "id": "asqa_pokemon_debut",
+      "group": "asqa_benchmark",
+      "query": "When did the first episode of Pokemon come out?",
+      "initial_context_ids": [
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Japanese premiere": "supported",
+        "English North American premiere": "supported"
+      },
+      "reference": "The first episode of Pokemon premiered in Japan on TV Tokyo on April 1, 1997. In the United States, it premiered in first-run syndication on September 8, 1998."
+    },
+    {
+      "id": "asqa_south_africa_capitals",
+      "group": "asqa_benchmark",
+      "query": "What is the capital of South Africa?",
+      "initial_context_ids": [
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Executive capital": "supported",
+        "Judicial capital": "supported",
+        "Legislative capital": "supported"
+      },
+      "reference": "South Africa has three official capital cities: Pretoria is the executive capital, Bloemfontein is the judicial capital, and Cape Town is the legislative capital."
+    },
+    {
+      "id": "asqa_hallelujah_song",
+      "group": "asqa_benchmark",
+      "query": "Who wrote and popularized the song Hallelujah?",
+      "initial_context_ids": [
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Original songwriter": "supported",
+        "Jeff Buckley recording": "supported"
+      },
+      "reference": "Leonard Cohen wrote and originally recorded 'Hallelujah' in 1984 on his album Various Positions. Jeff Buckley recorded a famous, critically acclaimed cover in 1994 on his album Grace."
+    },
+    {
+      "id": "asqa_the_office_seasons",
+      "group": "asqa_benchmark",
+      "query": "How many seasons of The Office were produced?",
+      "initial_context_ids": [
+        "asqa_p_off_uk",
+        "asqa_p_off_us"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "UK original series": "supported",
+        "US remake series": "supported"
+      },
+      "reference": "The original British series created by Ricky Gervais and Stephen Merchant ran for 2 series plus a two-part Christmas special (14 episodes). The American adaptation ran for 9 seasons (201 episodes) on NBC."
+    },
+    {
+      "id": "asqa_speed_of_sound",
+      "group": "asqa_benchmark",
+      "query": "What is the speed of sound?",
+      "initial_context_ids": [
+        "asqa_p_sound_air",
+        "asqa_p_sound_water"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Speed in air": "supported",
+        "Speed in water": "supported",
+        "Speed in solids": "supported"
+      },
+      "reference": "The speed of sound depends on the medium: in dry air at 20 \u00b0C it is approximately 343 m/s (1,235 km/h); in water at 20 \u00b0C it is about 1,482 m/s; and in steel it is roughly 5,120 m/s."
+    },
+    {
+      "id": "asqa_university_of_washington",
+      "group": "asqa_benchmark",
+      "query": "Where is the University of Washington located?",
+      "initial_context_ids": [
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Seattle primary campus": "supported",
+        "Bothell campus": "supported",
+        "Tacoma campus": "supported"
+      },
+      "reference": "The flagship campus of the University of Washington is located in Seattle's University District. The university also operates two branch campuses: UW Bothell and UW Tacoma, both established in 1990."
+    },
+    {
+      "id": "asqa_eiffel_tower",
+      "group": "asqa_benchmark",
+      "query": "When was the Eiffel Tower built and who designed it?",
+      "initial_context_ids": [
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "available_context_ids": [
+        "asqa_p_jc_t2",
+        "asqa_p_jc_t3",
+        "asqa_p_jc_ts",
+        "asqa_p_jc_tg",
+        "asqa_p_pk_jp",
+        "asqa_p_pk_us",
+        "asqa_p_sa_pretoria",
+        "asqa_p_sa_bloemfontein",
+        "asqa_p_sa_capetown",
+        "asqa_p_hal_cohen",
+        "asqa_p_hal_buckley",
+        "asqa_p_off_uk",
+        "asqa_p_off_us",
+        "asqa_p_sound_air",
+        "asqa_p_sound_water",
+        "asqa_p_sound_solid",
+        "asqa_p_uw_seattle",
+        "asqa_p_uw_branches",
+        "asqa_p_eiffel_time",
+        "asqa_p_eiffel_designer"
+      ],
+      "expected_aspects": {
+        "Construction timeline": "supported",
+        "Design engineers": "supported"
+      },
+      "reference": "The Eiffel Tower was built between 1887 and 1889 as the entrance arch to the 1889 World's Fair. It was designed by senior engineers Maurice Koechlin and \u00c9mile Nouguier, and built by Gustave Eiffel's civil engineering company."
+    }
+  ]
+}

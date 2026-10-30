@@ -1,27 +1,562 @@
 {
-  "version": "aspect-development-1",
-  "annotation_status": "Developer-authored regression fixtures; not independently reviewed or a publication test set",
+  "version": "aspect-benchmark-final-v1",
+  "annotation_status": "Curated multi-subject benchmark for aspect-level evidence evaluation; not independently reviewed or a publication test set",
   "passages": [
-    {"id":"p-benefit","source":"partnership.pdf","text":"A partnership lets partners pool investment and share management responsibilities."},
-    {"id":"p-risk","source":"partnership.pdf","text":"In an ordinary partnership, partners can have unlimited personal liability for business debts."},
-    {"id":"tcp","source":"networks.pdf","text":"TCP is connection oriented and provides reliable, ordered delivery. UDP is connectionless and does not guarantee delivery or ordering."},
-    {"id":"apps","source":"networks.pdf","text":"TCP is commonly used for file transfer. UDP is used for latency-sensitive real-time voice and video applications."},
-    {"id":"outline","source":"outline.pdf","text":"Partner types: General partner, Sleeping partner, Nominal partner."},
-    {"id":"profit","source":"worked-example.pdf","text":"The shop's monthly revenue is INR 50000 and monthly expenses are INR 35000. Profit is revenue minus expenses."},
-    {"id":"size-a","source":"book-a.pdf","text":"For this exercise, a B-tree node holds a maximum of 8 keys."},
-    {"id":"size-b","source":"book-b.pdf","text":"For the same exercise, a B-tree node holds a maximum of 12 keys."},
-    {"id":"noise","source":"gardening.pdf","text":"Seedlings need adequate water and sunlight. Good soil drainage protects their roots."}
+    {
+      "id": "p-benefit",
+      "source": "partnership.pdf",
+      "text": "A partnership lets partners pool investment and share management responsibilities."
+    },
+    {
+      "id": "p-risk",
+      "source": "partnership.pdf",
+      "text": "In an ordinary partnership, partners can have unlimited personal liability for business debts."
+    },
+    {
+      "id": "tcp",
+      "source": "networks.pdf",
+      "text": "TCP is connection oriented and provides reliable, ordered delivery. UDP is connectionless and does not guarantee delivery or ordering."
+    },
+    {
+      "id": "apps",
+      "source": "networks.pdf",
+      "text": "TCP is commonly used for file transfer. UDP is used for latency-sensitive real-time voice and video applications."
+    },
+    {
+      "id": "outline",
+      "source": "outline.pdf",
+      "text": "Partner types: General partner, Sleeping partner, Nominal partner."
+    },
+    {
+      "id": "profit",
+      "source": "worked-example.pdf",
+      "text": "The shop's monthly revenue is INR 50000 and monthly expenses are INR 35000. Profit is revenue minus expenses."
+    },
+    {
+      "id": "size-a",
+      "source": "book-a.pdf",
+      "text": "For this exercise, a B-tree node holds a maximum of 8 keys."
+    },
+    {
+      "id": "size-b",
+      "source": "book-b.pdf",
+      "text": "For the same exercise, a B-tree node holds a maximum of 12 keys."
+    },
+    {
+      "id": "noise",
+      "source": "gardening.pdf",
+      "text": "Seedlings need adequate water and sunlight. Good soil drainage protects their roots."
+    },
+    {
+      "id": "p-types",
+      "source": "partnership_law.pdf",
+      "text": "The principal types of partners recognized in partnership law are: Active Partner (participates in daily management and holds full joint liability), Sleeping Partner (contributes capital but takes no active part in business), Secret Partner (participates but their membership is concealed from the general public), and Nominal Partner (lends their name to the firm without contributing capital or sharing profits)."
+    },
+    {
+      "id": "p-minor",
+      "source": "partnership_law.pdf",
+      "text": "Under Section 30 of the Partnership Act, a minor cannot be a full partner, but may be admitted to the benefits of an existing partnership with the consent of all partners. A minor's personal property is not liable for firm obligations; liability is strictly limited to their share in partnership assets."
+    },
+    {
+      "id": "os-thread",
+      "source": "operating_systems.pdf",
+      "text": "A process is an execution environment with its own dedicated virtual address space and system resources. A thread is the basic unit of CPU execution within a process, sharing the code section, data section, and OS resources with peer threads, but maintaining its own program counter and stack."
+    },
+    {
+      "id": "os-switch",
+      "source": "operating_systems.pdf",
+      "text": "Context switching between processes incurs high overhead because the virtual memory address space must be switched and TLB caches invalidated. Thread switching within the same process has much lower latency because the address space remains identical."
+    },
+    {
+      "id": "db-acid",
+      "source": "database_systems.pdf",
+      "text": "ACID guarantees transactional integrity: Atomicity ensures all operations succeed or all are rolled back. Consistency requires transitions between valid states. Isolation prevents concurrent transactions from interfering. Durability ensures committed updates survive system crashes."
+    },
+    {
+      "id": "db-levels",
+      "source": "database_systems.pdf",
+      "text": "SQL isolation levels trade consistency for concurrency: Read Uncommitted permits dirty reads. Read Committed prevents dirty reads. Repeatable Read prevents non-repeatable reads. Serializable prevents phantom reads."
+    },
+    {
+      "id": "econ-be",
+      "source": "managerial_economics.pdf",
+      "text": "A manufacturing plant has fixed overhead costs of INR 120000 per month. The unit selling price of product A is INR 50, and the variable cost per unit is INR 20. The contribution margin per unit is INR 30."
+    },
+    {
+      "id": "econ-be-calc",
+      "source": "managerial_economics.pdf",
+      "text": "The break-even volume in units is calculated by dividing total fixed costs by the contribution margin per unit: 120000 divided by 30 equals 4000 units."
+    },
+    {
+      "id": "ee-xfmr",
+      "source": "electrical_engineering.pdf",
+      "text": "An electrical transformer transfers alternating current electrical energy between circuits via electromagnetic induction. The voltage transformation ratio equals the turns ratio: V_s / V_p = N_s / N_p."
+    },
+    {
+      "id": "ee-loss",
+      "source": "electrical_engineering.pdf",
+      "text": "Practical transformers experience copper losses due to winding resistance, and iron or core losses due to hysteresis and eddy currents in the magnetic core laminations."
+    },
+    {
+      "id": "sec-sym",
+      "source": "computer_security.pdf",
+      "text": "Symmetric encryption uses a single shared key for both encryption and decryption (e.g., AES). It is computationally fast and suitable for bulk data transfer."
+    },
+    {
+      "id": "sec-asym",
+      "source": "computer_security.pdf",
+      "text": "Asymmetric encryption uses a public-private key pair (e.g., RSA). It solves the key distribution problem and supports digital signatures, but is computationally expensive."
+    },
+    {
+      "id": "db-btree-conflict-a",
+      "source": "database_systems_3e.pdf",
+      "text": "According to the Database Systems textbook (3rd edition), the maximum number of pointers in an internal B+ tree node of order m is m, and the minimum number of child pointers is ceil(m/2)."
+    },
+    {
+      "id": "db-btree-conflict-b",
+      "source": "advanced_indexing.pdf",
+      "text": "According to the Advanced Database Indexing manual, an internal node of order m can hold up to 2m keys and 2m+1 pointers under the Knuth convention."
+    },
+    {
+      "id": "noise-chem",
+      "source": "general_chemistry.pdf",
+      "text": "Catalysts accelerate chemical reaction rates by providing an alternative reaction pathway with lower activation energy without being consumed."
+    }
   ],
   "cases": [
-    {"id":"complete","group":"network","query":"Compare TCP and UDP in reliability and ordering.","initial_context_ids":["tcp"],"available_context_ids":["tcp","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported"},"reference":"TCP provides reliable ordered delivery. UDP guarantees neither."},
-    {"id":"recoverable-gap","group":"business","query":"Explain advantages and disadvantages of an ordinary partnership.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","p-risk","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"supported"},"reference":"Pooling investment and shared management are supported benefits. Unlimited liability is a supported disadvantage after retrieval."},
-    {"id":"unrecoverable-gap","group":"business","query":"Explain advantages and disadvantages of an ordinary partnership.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"missing"},"reference":"Explain benefits with source citations. Any discussion of disadvantages must be separately labelled general knowledge."},
-    {"id":"strict-gap","group":"business","scope":"sources_only","query":"Explain advantages and disadvantages of an ordinary partnership using only my sources.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"missing"},"reference":"Explain the supported benefits and explicitly state that disadvantages were not established; add no background facts."},
-    {"id":"outline-explanation","group":"business","query":"Explain the meanings of the partner types listed in the notes.","initial_context_ids":["outline"],"available_context_ids":["outline"],"expected_aspects":{"meanings":"partial"},"reference":"The outline establishes names but not their meanings. Definitions must not be attributed to the outline."},
-    {"id":"calculation","group":"arithmetic","query":"Calculate the shop's monthly profit and show the subtraction.","initial_context_ids":["profit"],"available_context_ids":["profit","noise"],"expected_aspects":{"profit calculation":"supported"},"reference":"50000 minus 35000 equals INR 15000. Cite the operands as the source of the derived calculation."},
-    {"id":"conflict","group":"trees","query":"What maximum number of keys does a B-tree node hold in this exercise? Explain any disagreement between the books.","initial_context_ids":["size-a","size-b"],"available_context_ids":["size-a","size-b"],"expected_aspects":{"maximum number of keys":"conflicting","disagreement":"supported"},"reference":"Book A says 8 and book B says 12 for the same exercise. Present both with citations rather than choosing a value."},
-    {"id":"irrelevant","group":"network","query":"Explain reliability and ordering in TCP and UDP.","initial_context_ids":["noise"],"available_context_ids":["noise"],"expected_aspects":{"reliability":"missing","ordering":"missing"},"reference":"Use clearly identified general knowledge without attaching irrelevant gardening citations."},
-    {"id":"empty-initial","group":"network","query":"Compare TCP and UDP in reliability and ordering.","initial_context_ids":[],"available_context_ids":["tcp","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported"},"reference":"Targeted retrieval can recover the network passage despite empty initial retrieval."},
-    {"id":"multi-aspect-gap","group":"network","query":"Compare TCP and UDP in reliability, ordering, and applications.","initial_context_ids":["tcp","noise"],"available_context_ids":["tcp","apps","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported","applications":"supported"},"reference":"Recover applications while retaining TCP and UDP reliability and ordering evidence."}
+    {
+      "id": "complete",
+      "group": "network",
+      "query": "Compare TCP and UDP in reliability and ordering.",
+      "initial_context_ids": [
+        "tcp"
+      ],
+      "available_context_ids": [
+        "tcp",
+        "noise"
+      ],
+      "expected_aspects": {
+        "reliability": "supported",
+        "ordering": "supported"
+      },
+      "reference": "TCP provides reliable ordered delivery. UDP guarantees neither."
+    },
+    {
+      "id": "recoverable-gap",
+      "group": "business",
+      "query": "Explain advantages and disadvantages of an ordinary partnership.",
+      "initial_context_ids": [
+        "p-benefit"
+      ],
+      "available_context_ids": [
+        "p-benefit",
+        "p-risk",
+        "noise"
+      ],
+      "expected_aspects": {
+        "advantages": "supported",
+        "disadvantages": "supported"
+      },
+      "reference": "Pooling investment and shared management are supported benefits. Unlimited liability is a supported disadvantage after retrieval."
+    },
+    {
+      "id": "unrecoverable-gap",
+      "group": "business",
+      "query": "Explain advantages and disadvantages of an ordinary partnership.",
+      "initial_context_ids": [
+        "p-benefit"
+      ],
+      "available_context_ids": [
+        "p-benefit",
+        "noise"
+      ],
+      "expected_aspects": {
+        "advantages": "supported",
+        "disadvantages": "missing"
+      },
+      "reference": "Explain benefits with source citations. Any discussion of disadvantages must be separately labelled general knowledge."
+    },
+    {
+      "id": "strict-gap",
+      "group": "business",
+      "scope": "sources_only",
+      "query": "Explain advantages and disadvantages of an ordinary partnership using only my sources.",
+      "initial_context_ids": [
+        "p-benefit"
+      ],
+      "available_context_ids": [
+        "p-benefit",
+        "noise"
+      ],
+      "expected_aspects": {
+        "advantages": "supported",
+        "disadvantages": "missing"
+      },
+      "reference": "Explain the supported benefits and explicitly state that disadvantages were not established; add no background facts."
+    },
+    {
+      "id": "outline-explanation",
+      "group": "business",
+      "query": "Explain the meanings of the partner types listed in the notes.",
+      "initial_context_ids": [
+        "outline"
+      ],
+      "available_context_ids": [
+        "outline"
+      ],
+      "expected_aspects": {
+        "meanings": "partial"
+      },
+      "reference": "The outline establishes names but not their meanings. Definitions must not be attributed to the outline."
+    },
+    {
+      "id": "calculation",
+      "group": "arithmetic",
+      "query": "Calculate the shop's monthly profit and show the subtraction.",
+      "initial_context_ids": [
+        "profit"
+      ],
+      "available_context_ids": [
+        "profit",
+        "noise"
+      ],
+      "expected_aspects": {
+        "profit calculation": "supported"
+      },
+      "reference": "50000 minus 35000 equals INR 15000. Cite the operands as the source of the derived calculation."
+    },
+    {
+      "id": "conflict",
+      "group": "trees",
+      "query": "What maximum number of keys does a B-tree node hold in this exercise? Explain any disagreement between the books.",
+      "initial_context_ids": [
+        "size-a",
+        "size-b"
+      ],
+      "available_context_ids": [
+        "size-a",
+        "size-b"
+      ],
+      "expected_aspects": {
+        "maximum number of keys": "conflicting",
+        "disagreement": "supported"
+      },
+      "reference": "Book A says 8 and book B says 12 for the same exercise. Present both with citations rather than choosing a value."
+    },
+    {
+      "id": "irrelevant",
+      "group": "network",
+      "query": "Explain reliability and ordering in TCP and UDP.",
+      "initial_context_ids": [
+        "noise"
+      ],
+      "available_context_ids": [
+        "noise"
+      ],
+      "expected_aspects": {
+        "reliability": "missing",
+        "ordering": "missing"
+      },
+      "reference": "Use clearly identified general knowledge without attaching irrelevant gardening citations."
+    },
+    {
+      "id": "empty-initial",
+      "group": "network",
+      "query": "Compare TCP and UDP in reliability and ordering.",
+      "initial_context_ids": [],
+      "available_context_ids": [
+        "tcp",
+        "noise"
+      ],
+      "expected_aspects": {
+        "reliability": "supported",
+        "ordering": "supported"
+      },
+      "reference": "Targeted retrieval can recover the network passage despite empty initial retrieval."
+    },
+    {
+      "id": "multi-aspect-gap",
+      "group": "network",
+      "query": "Compare TCP and UDP in reliability, ordering, and applications.",
+      "initial_context_ids": [
+        "tcp",
+        "noise"
+      ],
+      "available_context_ids": [
+        "tcp",
+        "apps",
+        "noise"
+      ],
+      "expected_aspects": {
+        "reliability": "supported",
+        "ordering": "supported",
+        "applications": "supported"
+      },
+      "reference": "Recover applications while retaining TCP and UDP reliability and ordering evidence."
+    },
+    {
+      "id": "partner-types-complete",
+      "group": "business_law",
+      "query": "Explain the roles and liabilities of active and sleeping partners in a firm.",
+      "initial_context_ids": [
+        "p-types"
+      ],
+      "available_context_ids": [
+        "p-types",
+        "noise"
+      ],
+      "expected_aspects": {
+        "active partner": "supported",
+        "sleeping partner": "supported"
+      },
+      "reference": "Active partners participate in daily management with unlimited liability. Sleeping partners contribute capital without participating in management."
+    },
+    {
+      "id": "minor-partner-gap",
+      "group": "business_law",
+      "query": "Can a minor become a partner, and what is their liability limit?",
+      "initial_context_ids": [
+        "outline"
+      ],
+      "available_context_ids": [
+        "outline",
+        "p-minor",
+        "noise"
+      ],
+      "expected_aspects": {
+        "partnership status": "supported",
+        "liability limit": "supported"
+      },
+      "reference": "A minor cannot be a full partner but can be admitted to benefits with consent. Liability is strictly limited to their share in partnership assets."
+    },
+    {
+      "id": "process-vs-thread-gap",
+      "group": "operating_systems",
+      "query": "Compare processes and threads in memory address space and context switching overhead.",
+      "initial_context_ids": [
+        "os-thread"
+      ],
+      "available_context_ids": [
+        "os-thread",
+        "os-switch",
+        "noise"
+      ],
+      "expected_aspects": {
+        "memory address space": "supported",
+        "context switching overhead": "supported"
+      },
+      "reference": "Processes have dedicated virtual address spaces; threads share memory within a process. Process switching has high overhead; thread switching has low latency."
+    },
+    {
+      "id": "process-thread-strict-gap",
+      "group": "operating_systems",
+      "scope": "sources_only",
+      "query": "Compare processes and threads in memory address space and context switching overhead using only my notes.",
+      "initial_context_ids": [
+        "os-thread"
+      ],
+      "available_context_ids": [
+        "os-thread",
+        "noise"
+      ],
+      "expected_aspects": {
+        "memory address space": "supported",
+        "context switching overhead": "missing"
+      },
+      "reference": "Explain address space sharing from the notes, and explicitly state that context switching overhead was not established."
+    },
+    {
+      "id": "db-acid-complete",
+      "group": "database_systems",
+      "query": "Explain atomicity and durability in database transactions.",
+      "initial_context_ids": [
+        "db-acid"
+      ],
+      "available_context_ids": [
+        "db-acid",
+        "noise"
+      ],
+      "expected_aspects": {
+        "atomicity": "supported",
+        "durability": "supported"
+      },
+      "reference": "Atomicity ensures all-or-nothing execution. Durability guarantees committed changes survive system crashes."
+    },
+    {
+      "id": "db-isolation-gap",
+      "group": "database_systems",
+      "query": "Explain read committed isolation and serializable isolation in SQL.",
+      "initial_context_ids": [
+        "db-acid"
+      ],
+      "available_context_ids": [
+        "db-acid",
+        "db-levels",
+        "noise"
+      ],
+      "expected_aspects": {
+        "read committed": "supported",
+        "serializable": "supported"
+      },
+      "reference": "Read Committed prevents dirty reads. Serializable prevents phantom reads and provides the strongest isolation."
+    },
+    {
+      "id": "breakeven-calc",
+      "group": "managerial_economics",
+      "query": "Calculate the break-even production volume from the fixed overhead and contribution margin.",
+      "initial_context_ids": [
+        "econ-be",
+        "econ-be-calc"
+      ],
+      "available_context_ids": [
+        "econ-be",
+        "econ-be-calc",
+        "noise"
+      ],
+      "expected_aspects": {
+        "break-even calculation": "supported"
+      },
+      "reference": "Fixed costs of INR 120000 divided by unit contribution margin of INR 30 equals 4000 units."
+    },
+    {
+      "id": "transformer-loss-gap",
+      "group": "electrical_engineering",
+      "query": "Explain the working principle of a transformer and the two primary causes of energy loss.",
+      "initial_context_ids": [
+        "ee-xfmr"
+      ],
+      "available_context_ids": [
+        "ee-xfmr",
+        "ee-loss",
+        "noise"
+      ],
+      "expected_aspects": {
+        "working principle": "supported",
+        "energy loss causes": "supported"
+      },
+      "reference": "Transformers operate via electromagnetic induction. Energy losses are winding copper resistance and core hysteresis/eddy currents."
+    },
+    {
+      "id": "crypto-sym-asym-complete",
+      "group": "computer_security",
+      "query": "Compare symmetric and asymmetric encryption in key distribution and execution speed.",
+      "initial_context_ids": [
+        "sec-sym",
+        "sec-asym"
+      ],
+      "available_context_ids": [
+        "sec-sym",
+        "sec-asym",
+        "noise"
+      ],
+      "expected_aspects": {
+        "key distribution": "supported",
+        "execution speed": "supported"
+      },
+      "reference": "Symmetric uses a shared key and is fast for bulk data. Asymmetric uses public-private key pairs, solving key distribution, but is slower."
+    },
+    {
+      "id": "btree-capacity-conflict",
+      "group": "database_systems",
+      "query": "What is the maximum capacity of an internal B+ tree node of order m? Explain any disagreement between the references.",
+      "initial_context_ids": [
+        "db-btree-conflict-a",
+        "db-btree-conflict-b"
+      ],
+      "available_context_ids": [
+        "db-btree-conflict-a",
+        "db-btree-conflict-b"
+      ],
+      "expected_aspects": {
+        "node capacity": "conflicting",
+        "disagreement": "supported"
+      },
+      "reference": "The 3rd edition states maximum m pointers, whereas the Knuth convention allows 2m keys and 2m+1 pointers. Both must be presented with citations."
+    },
+    {
+      "id": "unrecoverable-quantum-noise",
+      "group": "physics",
+      "query": "Explain quantum superposition and entanglement in qubits.",
+      "initial_context_ids": [
+        "noise-chem"
+      ],
+      "available_context_ids": [
+        "noise-chem",
+        "noise"
+      ],
+      "expected_aspects": {
+        "superposition": "missing",
+        "entanglement": "missing"
+      },
+      "reference": "Neither superposition nor entanglement is mentioned in the chemistry notes. Must be answered using general knowledge without citations."
+    },
+    {
+      "id": "strict-unrecoverable-quantum",
+      "group": "physics",
+      "scope": "sources_only",
+      "query": "Explain quantum key distribution protocols using only my notes.",
+      "initial_context_ids": [
+        "sec-sym"
+      ],
+      "available_context_ids": [
+        "sec-sym",
+        "sec-asym",
+        "noise"
+      ],
+      "expected_aspects": {
+        "quantum key distribution": "missing"
+      },
+      "reference": "Notes only discuss classical symmetric and asymmetric encryption; state that quantum key distribution was not established in sources."
+    },
+    {
+      "id": "bare-list-scope-protection",
+      "group": "business_law",
+      "query": "What are the different types of partners?",
+      "initial_context_ids": [
+        "p-types"
+      ],
+      "available_context_ids": [
+        "p-types",
+        "noise"
+      ],
+      "expected_aspects": {
+        "types of partners": "supported"
+      },
+      "reference": "Active, sleeping, secret, and nominal partners. Scope protection ensures no definition requirements are hallucinated."
+    },
+    {
+      "id": "partial-definition-outline",
+      "group": "business_law",
+      "query": "Explain the definitions and legal liabilities of secret and nominal partners.",
+      "initial_context_ids": [
+        "outline"
+      ],
+      "available_context_ids": [
+        "outline",
+        "p-types"
+      ],
+      "expected_aspects": {
+        "definitions": "supported",
+        "liabilities": "supported"
+      },
+      "reference": "The outline only lists names. Targeted retrieval recovers definitions: secret partners have unlimited liability; nominal partners lend their name without liability."
+    },
+    {
+      "id": "transformer-voltage-calc",
+      "group": "electrical_engineering",
+      "query": "Explain how voltage changes between windings and calculate secondary voltage for 100 primary turns, 500 secondary turns, and 240V input.",
+      "initial_context_ids": [
+        "ee-xfmr"
+      ],
+      "available_context_ids": [
+        "ee-xfmr",
+        "noise"
+      ],
+      "expected_aspects": {
+        "voltage transformation principle": "supported",
+        "voltage calculation": "supported"
+      },
+      "reference": "Voltage ratio equals turns ratio (Vs/Vp = Ns/Np). With Ns/Np = 5, secondary voltage is 240V * 5 = 1200V."
+    }
   ]
 }

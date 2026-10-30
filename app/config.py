@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     claim_verification_max_chars: int = Field(default=12000, ge=1000, le=24000)
     claim_verification_max_claims: int = Field(default=40, ge=1, le=80)
     claim_repair_enabled: bool = True
+    claim_verification_fail_closed: bool = True
+
+    # --- LLM fallback (used when primary provider rate-limits) ---------------
+    # Leave llm_fallback_base_url empty to disable fallback entirely.
+    llm_fallback_provider: str = "openai_compatible"
+    llm_fallback_model: str = "google/gemma-2-9b-it:free"
+    llm_fallback_base_url: str = ""
+    llm_fallback_api_key: str = ""
 
     hyde_provider: str = "ollama"
     hyde_model: str = "deepseek-r1:1.5b"

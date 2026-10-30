@@ -107,12 +107,29 @@ def source_units(source):
     return units
 
 
+def _fallback_config(settings) -> "LLMConfig | None":
+    """Return a fallback LLMConfig if one is configured, else None."""
+    base_url = getattr(settings, "llm_fallback_base_url", "")
+    if not base_url:
+        return None
+    return LLMConfig(
+        provider=getattr(settings, "llm_fallback_provider", "openai_compatible"),
+        model=getattr(settings, "llm_fallback_model", "google/gemma-2-9b-it:free"),
+        base_url=base_url,
+        api_key=getattr(settings, "llm_fallback_api_key", ""),
+        timeout=settings.evidence_check_timeout_seconds,
+        max_retries=1,
+        max_output_tokens=2048,
+    )
+
+
 def client_for(settings):
     return LLMClient(LLMConfig(
         provider=settings.llm_provider, model=settings.llm_model,
         base_url=settings.llm_base_url, api_key=settings.llm_api_key,
-        timeout=settings.evidence_check_timeout_seconds, max_retries=0,
-        max_output_tokens=6000,
+        timeout=settings.evidence_check_timeout_seconds, max_retries=3,
+        max_output_tokens=2048,
+        fallback=_fallback_config(settings),
     ))
 
 
@@ -230,11 +247,15 @@ async def verify_and_repair(answer, chunks, settings, basis):
             return join_answer(source, background), report
     except Exception as exc:
         report.status = "unavailable"
-        report.withheld = True
         report.failure_type = type(exc).__name__
+        fail_closed = getattr(settings, "claim_verification_fail_closed", True)
+        if not fail_closed:
+            report.withheld = False
+            report.reason = "Source-claim verification was skipped due to provider limits. Answer is released unverified."
+            return answer, report
+        report.withheld = True
         report.reason = "Source-claim verification could not be completed within its budget."
-    # Preserve only the application-delimited background of a well-formed
-    # mixed answer. An unverified source section is never relabelled background.
+
     limitation = "I couldn't verify the source-supported answer, so that portion has been withheld. Please inspect the evidence or try again."
     return join_answer(limitation, background), report
 
