@@ -148,6 +148,21 @@ def validate_evidence_decision(plan: QuestionPlan, chunks: list[Chunk], decision
     return result
 
 
+def _fallback_config(settings: Settings) -> "LLMConfig | None":
+    base_url = getattr(settings, "llm_fallback_base_url", "")
+    if not base_url:
+        return None
+    return LLMConfig(
+        provider=getattr(settings, "llm_fallback_provider", "openai_compatible"),
+        model=getattr(settings, "llm_fallback_model", "google/gemma-2-9b-it:free"),
+        base_url=base_url,
+        api_key=getattr(settings, "llm_fallback_api_key", ""),
+        timeout=settings.evidence_check_timeout_seconds,
+        max_retries=1,
+        max_output_tokens=2048,
+    )
+
+
 def _client(settings: Settings, max_output_tokens: int = 2048) -> LLMClient:
     return LLMClient(
         LLMConfig(
@@ -156,8 +171,9 @@ def _client(settings: Settings, max_output_tokens: int = 2048) -> LLMClient:
             base_url=settings.llm_base_url,
             api_key=settings.llm_api_key,
             timeout=settings.evidence_check_timeout_seconds,
-            max_retries=0,
+            max_retries=3,
             max_output_tokens=max_output_tokens,
+            fallback=_fallback_config(settings),
         )
     )
 
@@ -205,8 +221,8 @@ async def plan_question(
                 "just ['comparison']; do not add criteria such as speed, advantages, "
                 "applications, cost, or examples unless the student explicitly requests "
                 "them. A small table is a presentation format, not a request for more "
-                "facts. For a generic definition request use ['definition']; do not "
-                "automatically add examples, history, or a list of properties. "
+                "facts. For a generic definition request use ['definition', 'key details']; do not "
+                "automatically add unrequested step-by-step tutorials. "
                 "Set verification_required when a reliable answer depends on external, "
                 "time-sensitive, location-specific, safety-critical, or otherwise "
                 "authoritative information that model memory alone cannot establish; "
@@ -328,7 +344,7 @@ async def evaluate_evidence(
         f"visual_inspection={chunk.visual_inspection_status} ({chunk.locator()}) {chunk.text}"
         for index, chunk in enumerate(chunks[:8], start=1)
     )
-    decision = await _structured_chain(prompt, EvidenceDecision, settings, 6000 if aspect_level else 2048).ainvoke(
+    decision = await _structured_chain(prompt, EvidenceDecision, settings, 2048).ainvoke(
         {"plan": question_plan.model_dump_json(), "passages": passages}
     )
     return validate_evidence_decision(question_plan, chunks[:8], decision)

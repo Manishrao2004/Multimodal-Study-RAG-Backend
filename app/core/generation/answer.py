@@ -136,7 +136,10 @@ _MIXED_SYSTEM_PROMPT = (
     "follow a clarification request or an alternative-domain menu invented in "
     "the plan. Explain the source-anchored topic names rather than replacing the "
     "explanation with a follow-up question. "
-    "Do not repeat the grounded section except where a short label is needed for clarity. "
+    "Do not repeat or restate facts already in the retrieved study material "
+    "(such as specific dates, platforms, or entities documented in the passages). "
+    "Focus this supplemental section strictly on explaining the broader concepts, underlying mechanics, "
+    "and educational context that the uploaded notes did not cover. "
     "Never add document citation markers, sources, URLs, quotations, or claims that "
     "web research was performed. When the plan requires external verification and "
     "none is supplied, give only stable conceptual help and state what must be "
@@ -168,6 +171,20 @@ _TYPE_LABELS = {
 }
 
 
+def _fallback_config(settings: Settings) -> "LLMConfig | None":
+    base_url = getattr(settings, "llm_fallback_base_url", "")
+    if not base_url:
+        return None
+    return LLMConfig(
+        provider=getattr(settings, "llm_fallback_provider", "openai_compatible"),
+        model=getattr(settings, "llm_fallback_model", "google/gemma-2-9b-it:free"),
+        base_url=base_url,
+        api_key=getattr(settings, "llm_fallback_api_key", ""),
+        max_retries=1,
+        max_output_tokens=2048,
+    )
+
+
 def build_client(settings: Settings) -> LLMClient:
     return LLMClient(
         LLMConfig(
@@ -175,6 +192,7 @@ def build_client(settings: Settings) -> LLMClient:
             model=settings.llm_model,
             base_url=settings.llm_base_url,
             api_key=settings.llm_api_key,
+            fallback=_fallback_config(settings),
         )
     )
 
@@ -344,17 +362,13 @@ async def generate_mixed_answer(
             [
                 {"role": "system", "content": _SYSTEM_PROMPT + _STUDENT_RESPONSE_STYLE + runtime_context() + (
                     "\nThis is the uploaded-material portion of a mixed answer. "
-                    "State only what the passages support. If they only name topics, "
-                    "give the relevant names with citations concisely; a separate "
-                    "general-knowledge portion will explain them. In this mixed "
-                    "answer, obey the coverage assessment: never attribute a missing "
-                    "aspect, an unverified visual detail, or an inferred definition to "
-                    "the source. If nothing answers the question, say that briefly; "
-                    "do not force a citation onto an unsupported explanation. In this mixed "
-                    "answer, replace the usual insufficient-information refusal "
-                    "with a short statement of the supported topics and scope. "
-                    "Do not start with 'I do not have enough information': missing "
-                    "explanations are handled in the separate portion."
+                    "Explain the student's question clearly and helpfully using all relevant factual details "
+                    "supported by the retrieved passages (such as definitions, context, components, key dates, "
+                    "platforms, and documented relationships). Do not artificially truncate the source explanation "
+                    "to a single brief sentence if the passages contain meaningful details about the topic. "
+                    "Every factual statement in this section must cite its supporting passage with [1], [2], etc. "
+                    "Never attribute missing aspects, unverified visual details, or inferred definitions to the source; "
+                    "unsupported concepts will be addressed in the supplemental general-knowledge portion."
                 )},
                 {"role": "user", "content": grounded_content},
             ],
