@@ -188,7 +188,12 @@ async def generate_quiz(
             continue
         question = str(entry.get("question") or "").strip()
         answer = str(entry.get("answer") or "").strip()
-        if not question or not answer:
+        if (
+            not isinstance(entry.get("question"), str)
+            or not isinstance(entry.get("answer"), str)
+            or not question
+            or not answer
+        ):
             dropped += 1
             continue
 
@@ -202,11 +207,19 @@ async def generate_quiz(
 
         options = entry.get("options")
         if quiz_format == QuizFormat.mcq:
-            if not isinstance(options, list) or len(options) < 2:
+            if (
+                not isinstance(options, list)
+                or len(options) != 4
+                or not all(isinstance(o, str) for o in options)
+            ):
                 dropped += 1
                 continue
             options = [str(o).strip() for o in options]
-            if answer not in options:
+            if (
+                any(not o for o in options)
+                or len({o.casefold() for o in options}) != 4
+                or answer not in options
+            ):
                 dropped += 1
                 continue
         else:

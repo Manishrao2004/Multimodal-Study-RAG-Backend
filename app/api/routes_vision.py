@@ -71,7 +71,7 @@ async def ask_about_screenshot(
             max_length=settings.security_max_query_length,
             field_name="question",
         )
-        raw_bytes = await image.read()
+        raw_bytes = await image.read(settings.security_max_screenshot_bytes + 1)
         validated = validate_upload(
             image.filename or "",
             raw_bytes,
