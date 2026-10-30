@@ -222,3 +222,41 @@ class TestQuizDedup:
         kept, duplicate_count = dedupe(items, key=lambda x: x)
         assert kept == items
         assert duplicate_count == 0
+
+
+@pytest.mark.parametrize("options,answer", [
+    (["a", "b"], "a"),
+    (["a", "A", "b", "c"], "a"),
+    (["a", "b", "c", ""], "a"),
+    (["a", "b", "c", 4], "a"),
+    (["a", "b", "c", "d"], "missing"),
+    (["a", "b", "c", "d"], {"bad": "shape"}),
+])
+async def test_unmarkable_mcqs_are_dropped(settings, sample_chunks, monkeypatch, options, answer):
+    import json
+    from types import SimpleNamespace
+    from app.core.generation.study_tools import generate_quiz
+
+    async def chat(*args, **kwargs):
+        return json.dumps([{"question": "Choose one", "options": options, "answer": answer, "citation": 1}])
+
+    monkeypatch.setattr("app.core.generation.study_tools.build_client", lambda _: SimpleNamespace(chat=chat))
+    items, dropped = await generate_quiz("retrieval", sample_chunks, 5, QuizFormat.mcq, settings)
+    assert items == []
+    assert dropped == 1
+
+
+async def test_valid_mcq_can_be_scored_by_exact_option(settings, sample_chunks, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from app.core.generation.study_tools import generate_quiz
+
+    async def chat(*args, **kwargs):
+        return json.dumps([{"question": "Which is lexical?", "options": [" BM25 ", "FAISS", "HyDE", "RRF"], "answer": "BM25", "citation": 2}])
+
+    monkeypatch.setattr("app.core.generation.study_tools.build_client", lambda _: SimpleNamespace(chat=chat))
+    items, dropped = await generate_quiz("retrieval", sample_chunks, 5, QuizFormat.mcq, settings)
+    assert dropped == 0
+    assert len(items) == 1
+    assert items[0].answer in items[0].options
+    assert items[0].chunk_id == sample_chunks[1].chunk_id
