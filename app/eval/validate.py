@@ -73,7 +73,9 @@ async def run_live(data: dict, out: Path, resume: bool = False) -> list[dict]:
     from app.models.schemas import AskRequest, Chunk, ChunkType
     from app.state import AppState
 
-    settings = get_settings()
+    # Preserve this older protocol as the adaptive baseline. The new aspect
+    # comparison has a separate runner and immutable manifests.
+    settings = get_settings().model_copy(update={"evidence_method": "adaptive"})
     out.mkdir(parents=True, exist_ok=True)
     tracked_sources = [Path(__file__), Path(__file__).parents[1] / "api/routes_ask.py",
                        Path(__file__).parents[1] / "core/generation/orchestration.py",
@@ -88,6 +90,7 @@ async def run_live(data: dict, out: Path, resume: bool = False) -> list[dict]:
                 "context": {"timezone": "Asia/Kolkata", "country": "India"},
                 "contradictions_enabled": False, "fixed_contexts": True}
     manifest["routing_configuration"] = {
+        "evidence_method": settings.evidence_method,
         "answer_endpoint_sha256": hashlib.sha256(settings.llm_base_url.encode()).hexdigest(),
         "evidence_check_timeout_seconds": settings.evidence_check_timeout_seconds,
         "visual_query_enabled": settings.visual_query_enabled,

@@ -112,6 +112,69 @@ class EvidenceSufficiency(str, Enum):
     not_checked = "not_checked"
 
 
+class EvidenceMethod(str, Enum):
+    edurag = "edurag"
+    adaptive = "adaptive"
+    aspect = "aspect"
+
+
+class EvidenceQuote(BaseModel):
+    chunk_id: str = Field(min_length=1, max_length=500)
+    quote: str = Field(min_length=1, max_length=1000)
+
+
+class AspectEvidence(BaseModel):
+    aspect_id: str
+    aspect: str
+    status: Literal["supported", "partial", "missing", "conflicting", "not_checked"]
+    supports: list[EvidenceQuote] = Field(default_factory=list)
+    conflicts: list[EvidenceQuote] = Field(default_factory=list)
+    reason: str = ""
+
+
+class RetrievalAttempt(BaseModel):
+    aspect_ids: list[str] = Field(default_factory=list)
+    query: str
+    status: Literal["completed", "unavailable"]
+    retrieved_ids: list[str] = Field(default_factory=list)
+    added_ids: list[str] = Field(default_factory=list)
+    elapsed_ms: float = 0
+
+
+class VerifiedClaim(BaseModel):
+    claim_id: str
+    text: str
+    provenance: Literal["source", "derived", "background"]
+    status: Literal["supported", "unsupported", "contradicted", "not_checked"]
+    citation_markers: list[int] = Field(default_factory=list)
+    supports: list[EvidenceQuote] = Field(default_factory=list)
+    reason: str = ""
+
+
+class ClaimVerification(BaseModel):
+    status: Literal["completed", "unavailable", "not_checked"] = "not_checked"
+    claims: list[VerifiedClaim] = Field(default_factory=list)
+    initial_claims: list[VerifiedClaim] = Field(default_factory=list)
+    repair_attempted: bool = False
+    withheld: bool = False
+    fallback_used: bool = False
+    fallback_kind: Literal["supported_claims", "source_excerpts"] | None = None
+    released_claim_ids: list[str] = Field(default_factory=list)
+    failure_type: str | None = None
+    reason: str | None = None
+    model_calls: int = 0
+
+
+class EvidenceTrace(BaseModel):
+    initial_chunk_ids: list[str] = Field(default_factory=list)
+    final_chunk_ids: list[str] = Field(default_factory=list)
+    initial_map: list[AspectEvidence] = Field(default_factory=list)
+    retrieval_attempts: list[RetrievalAttempt] = Field(default_factory=list)
+    assessment_calls: int = 0
+    targeted_retrieval_enabled: bool = False
+    claim_verification_enabled: bool = False
+
+
 class ConversationTurn(BaseModel):
     """Recent client-side conversation context for a follow-up question.
 
@@ -155,6 +218,7 @@ class AskRequest(BaseModel):
     comprehensive: bool = False
     history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
     answer_scope: AnswerScope = AnswerScope.auto
+    evidence_method: EvidenceMethod | None = None
 
     _validate_query = field_validator("query")(_clean_query_text)
 
@@ -213,6 +277,10 @@ class AskResponse(BaseModel):
     evidence_check_reason: str | None = None
     supported_aspects: list[str] = Field(default_factory=list)
     missing_aspects: list[str] = Field(default_factory=list)
+    evidence_method: EvidenceMethod = EvidenceMethod.adaptive
+    evidence_map: list[AspectEvidence] = Field(default_factory=list)
+    evidence_trace: EvidenceTrace = Field(default_factory=EvidenceTrace)
+    claim_verification: ClaimVerification = Field(default_factory=ClaimVerification)
 
 
 class ScreenshotAskResponse(BaseModel):

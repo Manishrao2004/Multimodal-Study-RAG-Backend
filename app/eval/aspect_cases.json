@@ -1,0 +1,27 @@
+{
+  "version": "aspect-development-1",
+  "annotation_status": "Developer-authored regression fixtures; not independently reviewed or a publication test set",
+  "passages": [
+    {"id":"p-benefit","source":"partnership.pdf","text":"A partnership lets partners pool investment and share management responsibilities."},
+    {"id":"p-risk","source":"partnership.pdf","text":"In an ordinary partnership, partners can have unlimited personal liability for business debts."},
+    {"id":"tcp","source":"networks.pdf","text":"TCP is connection oriented and provides reliable, ordered delivery. UDP is connectionless and does not guarantee delivery or ordering."},
+    {"id":"apps","source":"networks.pdf","text":"TCP is commonly used for file transfer. UDP is used for latency-sensitive real-time voice and video applications."},
+    {"id":"outline","source":"outline.pdf","text":"Partner types: General partner, Sleeping partner, Nominal partner."},
+    {"id":"profit","source":"worked-example.pdf","text":"The shop's monthly revenue is INR 50000 and monthly expenses are INR 35000. Profit is revenue minus expenses."},
+    {"id":"size-a","source":"book-a.pdf","text":"For this exercise, a B-tree node holds a maximum of 8 keys."},
+    {"id":"size-b","source":"book-b.pdf","text":"For the same exercise, a B-tree node holds a maximum of 12 keys."},
+    {"id":"noise","source":"gardening.pdf","text":"Seedlings need adequate water and sunlight. Good soil drainage protects their roots."}
+  ],
+  "cases": [
+    {"id":"complete","group":"network","query":"Compare TCP and UDP in reliability and ordering.","initial_context_ids":["tcp"],"available_context_ids":["tcp","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported"},"reference":"TCP provides reliable ordered delivery. UDP guarantees neither."},
+    {"id":"recoverable-gap","group":"business","query":"Explain advantages and disadvantages of an ordinary partnership.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","p-risk","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"supported"},"reference":"Pooling investment and shared management are supported benefits. Unlimited liability is a supported disadvantage after retrieval."},
+    {"id":"unrecoverable-gap","group":"business","query":"Explain advantages and disadvantages of an ordinary partnership.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"missing"},"reference":"Explain benefits with source citations. Any discussion of disadvantages must be separately labelled general knowledge."},
+    {"id":"strict-gap","group":"business","scope":"sources_only","query":"Explain advantages and disadvantages of an ordinary partnership using only my sources.","initial_context_ids":["p-benefit"],"available_context_ids":["p-benefit","noise"],"expected_aspects":{"advantages":"supported","disadvantages":"missing"},"reference":"Explain the supported benefits and explicitly state that disadvantages were not established; add no background facts."},
+    {"id":"outline-explanation","group":"business","query":"Explain the meanings of the partner types listed in the notes.","initial_context_ids":["outline"],"available_context_ids":["outline"],"expected_aspects":{"meanings":"partial"},"reference":"The outline establishes names but not their meanings. Definitions must not be attributed to the outline."},
+    {"id":"calculation","group":"arithmetic","query":"Calculate the shop's monthly profit and show the subtraction.","initial_context_ids":["profit"],"available_context_ids":["profit","noise"],"expected_aspects":{"profit calculation":"supported"},"reference":"50000 minus 35000 equals INR 15000. Cite the operands as the source of the derived calculation."},
+    {"id":"conflict","group":"trees","query":"What maximum number of keys does a B-tree node hold in this exercise? Explain any disagreement between the books.","initial_context_ids":["size-a","size-b"],"available_context_ids":["size-a","size-b"],"expected_aspects":{"maximum number of keys":"conflicting","disagreement":"supported"},"reference":"Book A says 8 and book B says 12 for the same exercise. Present both with citations rather than choosing a value."},
+    {"id":"irrelevant","group":"network","query":"Explain reliability and ordering in TCP and UDP.","initial_context_ids":["noise"],"available_context_ids":["noise"],"expected_aspects":{"reliability":"missing","ordering":"missing"},"reference":"Use clearly identified general knowledge without attaching irrelevant gardening citations."},
+    {"id":"empty-initial","group":"network","query":"Compare TCP and UDP in reliability and ordering.","initial_context_ids":[],"available_context_ids":["tcp","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported"},"reference":"Targeted retrieval can recover the network passage despite empty initial retrieval."},
+    {"id":"multi-aspect-gap","group":"network","query":"Compare TCP and UDP in reliability, ordering, and applications.","initial_context_ids":["tcp","noise"],"available_context_ids":["tcp","apps","noise"],"expected_aspects":{"reliability":"supported","ordering":"supported","applications":"supported"},"reference":"Recover applications while retaining TCP and UDP reliability and ordering evidence."}
+  ]
+}

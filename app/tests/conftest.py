@@ -16,6 +16,7 @@ def block_provider_network(monkeypatch):
 @pytest.fixture
 def settings(tmp_path):
     return Settings(_env_file=None, llm_provider="none", vlm_provider="none",
+                    evidence_method="adaptive",
                     hyde_provider="none", hyde_enabled=False, asr_provider="none",
                     image_dir=tmp_path / "images", kb_db_path=tmp_path / "kb.sqlite3")
 
