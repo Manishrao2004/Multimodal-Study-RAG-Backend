@@ -371,6 +371,16 @@ requires authenticated ownership checks on conversations and uploaded sources.
 
 ## Adaptive answer validation
 
+The default `aspect` evidence method now maps support to each requested aspect,
+retrieves missing aspects in one bounded round, and checks source claims with
+one optional repair. The previous `adaptive` policy and an `edurag`-style strict
+baseline remain selectable for comparisons. See
+[Aspect-level evidence-aware answering](docs/ASPECT_EVIDENCE.md) for settings,
+API metadata, budgets, failure handling, and the isolated comparison runner.
+Validate its development dataset without provider calls with
+`uv run python -m app.eval.aspect_study --check`. No new accuracy improvement
+or publication result is established by this implementation.
+
 Auto mode now requires traceable aspect support and uses conservative failure handling for text, tables and figures. See [Evidence support and conservative answering](docs/EVIDENCE_SAFETY.md) for the implementation, API budgets and limitations. Run `uv run pytest app/tests app/eval -q` for local tests without provider calls. The saved live metrics predate this change and are not new accuracy measurements.
 
 The full evaluation protocol and metric definitions are in

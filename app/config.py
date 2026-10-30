@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-from pydantic import Field
+from typing import Literal
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434"
     llm_api_key: str = ""
     evidence_check_timeout_seconds: float = Field(default=25, ge=1, le=60)
+    evidence_method: Literal["edurag", "adaptive", "aspect"] = "aspect"
+    aspect_decomposition_enabled: bool = True
+    targeted_retrieval_enabled: bool = True
+    targeted_retrieval_max_queries: int = Field(default=2, ge=0, le=3)
+    targeted_retrieval_top_k: int = Field(default=3, ge=1, le=5)
+    targeted_retrieval_timeout_seconds: float = Field(default=20, ge=1, le=60)
+    claim_verification_enabled: bool = True
+    claim_verification_max_chars: int = Field(default=12000, ge=1000, le=24000)
+    claim_verification_max_claims: int = Field(default=40, ge=1, le=80)
+    claim_repair_enabled: bool = True
 
     hyde_provider: str = "ollama"
     hyde_model: str = "deepseek-r1:1.5b"

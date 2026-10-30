@@ -21,9 +21,14 @@ from app.core.generation.answer import (
     generate_mixed_answer,
 )
 from app.core.generation.llm_client import LLMError
+from app.core.generation.aspect_pipeline import assess_aspects
+from app.core.generation.aspect_evidence import apply_map
+from app.core.generation.claim_verification import verify_and_repair, source_excerpt_fallback
 from app.core.generation.orchestration import (
     evaluate_evidence,
+    evaluate_aspect_evidence,
     plan_question,
+    preserve_question_scope,
     validate_evidence_decision,
 )
 from app.core.retrieval.sufficiency import assess_evidence_sufficiency
@@ -34,10 +39,13 @@ from app.models.schemas import (
     AnswerScope,
     AskRequest,
     AskResponse,
+    ClaimVerification,
     EvidenceItem,
     EvidenceSufficiency,
     QuestionPlan,
     ChunkType,
+    EvidenceMethod,
+    EvidenceTrace,
 )
 from app.state import AppState
 
@@ -92,7 +100,10 @@ async def _comprehensive_retrieve(request: AskRequest, state: AppState, query: s
 
 @router.post("/ask", response_model=AskResponse)
 async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
-    if request.answer_scope == AnswerScope.sources_only and not state.retrieval.is_ready:
+    method = request.evidence_method or EvidenceMethod(state.settings.evidence_method)
+    strict_source = request.answer_scope == AnswerScope.sources_only or (
+        method == EvidenceMethod.edurag and request.answer_scope != AnswerScope.model_only)
+    if strict_source and not state.retrieval.is_ready:
         raise HTTPException(
             status_code=409, detail="Knowledge base is empty. Ingest a document first."
         )
@@ -103,12 +114,16 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
     sources_considered: list[str] = []
     ranked = []
     try:
-        question_plan = await plan_question(request.query, request.history, settings)
+        question_plan = (QuestionPlan(standalone_query=request.query) if method == EvidenceMethod.edurag
+                         else await plan_question(request.query, request.history, settings))
     except Exception:
         # Planning improves routing and follow-ups but must never make the main
         # answer unavailable when a provider has a transient failure.
         question_plan = QuestionPlan(standalone_query=request.query)
+    question_plan = preserve_question_scope(question_plan, request.query)
     resolved_query = question_plan.standalone_query
+    if method == EvidenceMethod.aspect and not settings.aspect_decomposition_enabled:
+        question_plan = question_plan.model_copy(update={"requested_aspects": [resolved_query]})
     if request.answer_scope != AnswerScope.model_only and state.retrieval.is_ready:
         if request.comprehensive:
             ranked, sources_considered = await _comprehensive_retrieve(
@@ -118,24 +133,50 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
             ranked = await state.retrieval.retrieve(
                 resolved_query, top_k=request.top_k, mode=request.mode
             )
-    if request.answer_scope == AnswerScope.sources_only and not ranked:
+    if strict_source and not ranked and method != EvidenceMethod.aspect:
         raise HTTPException(status_code=404, detail="No relevant evidence found.")
 
-    if request.answer_scope == AnswerScope.auto and ranked:
+    if request.answer_scope == AnswerScope.auto and ranked and method != EvidenceMethod.edurag:
         kb = getattr(state, "kb", None)
         if kb is not None and hasattr(kb, "nearby_chunks"):
             ranked = expand_local_context(ranked, kb)
-    if ranked:
+    if ranked and method != EvidenceMethod.edurag:
         ranked = await inspect_retrieved_figures(resolved_query, ranked, settings)
-        if request.answer_scope == AnswerScope.auto:
+        if request.answer_scope == AnswerScope.auto or method == EvidenceMethod.aspect:
             ranked = bound_context(ranked)
     visual_unavailable = bool(ranked and requires_visual_evidence(resolved_query) and
                               not any(c.visual_inspection_status == "completed" for c, _ in ranked))
     evidence_decision = None
+    evidence_map = []
+    evidence_trace = EvidenceTrace()
     check_status = "not_checked"
     check_reason = None
     if request.answer_scope == AnswerScope.model_only:
         sufficiency = EvidenceSufficiency.not_checked
+    elif method == EvidenceMethod.aspect:
+        ranked, evidence_decision, evidence_map, evidence_trace, check_status = await assess_aspects(
+            question_plan, ranked, state, request, evaluate_aspect_evidence, inspect_retrieved_figures)
+        visual_unavailable = bool(ranked and requires_visual_evidence(resolved_query) and
+                                 not any(c.visual_inspection_status == "completed" for c, _ in ranked))
+        sufficiency = evidence_decision.sufficiency if evidence_decision else EvidenceSufficiency.insufficient
+        check_reason = evidence_decision.reason if evidence_decision else "Source support could not be assessed."
+        if evidence_decision and request.comprehensive and set(sources_considered) - {c.source_file for c, _ in ranked}:
+            evidence_decision.missing_aspects.append("Coverage of every requested source document was not established")
+            evidence_decision.needs_background = True
+            sufficiency = EvidenceSufficiency.partial
+        if evidence_decision and visual_unavailable:
+            evidence_decision.missing_aspects.append("Requested visual details could not be verified from the actual figure")
+            sufficiency = EvidenceSufficiency.partial
+        if evidence_decision and (visual_unavailable or (
+            request.comprehensive and set(sources_considered) - {c.source_file for c, _ in ranked}
+        )):
+            for aspect in evidence_map:
+                if aspect.status == "supported":
+                    aspect.status = "partial"
+                    aspect.reason = evidence_decision.missing_aspects[-1]
+            evidence_decision = apply_map(evidence_decision, evidence_map)
+        if evidence_decision and evidence_decision.missing_aspects:
+            check_reason = "Source coverage is incomplete. Missing: " + "; ".join(evidence_decision.missing_aspects)
     elif request.answer_scope == AnswerScope.auto and ranked:
         try:
             evidence_decision = await evaluate_evidence(
@@ -155,12 +196,6 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
             sufficiency = evidence_decision.sufficiency
             if evidence_decision.topic_relevant and evidence_decision.needs_background:
                 sufficiency = EvidenceSufficiency.partial
-            if evidence_decision.topic_relevant and evidence_decision.topic_items:
-                question_plan = question_plan.model_copy(update={
-                    "referenced_items": list(dict.fromkeys(
-                        [*question_plan.referenced_items, *evidence_decision.topic_items]
-                    ))[:50],
-                })
             if evidence_decision.missing_aspects:
                 check_reason = "Source coverage is incomplete. Missing: " + "; ".join(evidence_decision.missing_aspects)
         except Exception:
@@ -174,7 +209,14 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         sufficiency = assess_evidence_sufficiency(
             resolved_query, ranked, request.mode
         )
-    if request.answer_scope == AnswerScope.sources_only:
+    if evidence_decision and evidence_decision.topic_relevant and evidence_decision.topic_items:
+        # Enrich generation after assessment without adding requested aspects.
+        question_plan = question_plan.model_copy(update={
+            "referenced_items": list(dict.fromkeys([
+                *question_plan.referenced_items, *evidence_decision.topic_items,
+            ]))[:50],
+        })
+    if strict_source:
         basis = AnswerBasis.sources
     elif request.answer_scope == AnswerScope.model_only:
         basis = AnswerBasis.model
@@ -193,7 +235,7 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         basis = AnswerBasis.sources
 
     supported_ids = None
-    if request.answer_scope == AnswerScope.auto and evidence_decision is not None:
+    if (request.answer_scope == AnswerScope.auto or method == EvidenceMethod.aspect) and evidence_decision is not None:
         supported_ids = {s.chunk_id for s in evidence_decision.supports}
         for c, _ in ranked:
             if c.type == ChunkType.visual and c.visual_inspection_status != "completed":
@@ -203,7 +245,8 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
                 supported_ids.add(c.chunk_id)
         if not supported_ids:
             sufficiency = EvidenceSufficiency.insufficient
-            basis = AnswerBasis.model
+            if not strict_source:
+                basis = AnswerBasis.model
             check_reason = "No traceable source support survived validation."
 
     # Irrelevant passages must not appear beside a model-only answer: doing so
@@ -225,7 +268,10 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
 
     source_abstained = False
     try:
-        if basis == AnswerBasis.model:
+        if strict_source and method == EvidenceMethod.aspect and (not chunks or check_status != "completed"):
+            source_abstained = True
+            answer = "I couldn't establish supporting evidence for this question in the retrieved material. Try another source or rephrase the question."
+        elif basis == AnswerBasis.model:
             if _requires_source_answer(request.query + " " + resolved_query):
                 source_abstained = True
                 answer = "I couldn't verify the uploaded material, so I can't establish what that source says or shows about this question."
@@ -248,6 +294,7 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
                 missing_aspects=(
                     evidence_decision.missing_aspects if evidence_decision else []
                 ),
+                **({"evidence_map": evidence_map} if method == EvidenceMethod.aspect else {}),
             )
         else:
             answer = await generate_answer(
@@ -257,19 +304,28 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
                 disagreements,
                 history=request.history,
                 plan=question_plan,
+                **({"evidence_map": evidence_map} if method == EvidenceMethod.aspect else {}),
             )
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     answer = normalize_citation_markers(answer)
+    claim_verification = ClaimVerification()
+    if method == EvidenceMethod.aspect and not source_abstained:
+        answer, claim_verification = await verify_and_repair(answer, chunks, settings, basis)
+        answer = source_excerpt_fallback(
+            answer, evidence_map, chunks, claim_verification, basis,
+            topic_items=evidence_decision.topic_items if evidence_decision else None,
+        )
 
-    attribution = compute_attribution(request.query, answer, chunks, settings) if chunks else {}
+    source_released = not (source_abstained or claim_verification.withheld)
+    attribution = compute_attribution(request.query, answer, chunks, settings) if chunks and source_released else {}
     percentages = normalize_to_percentages(attribution) if attribution else {}
     citations = extract_and_validate_citations(answer, chunks) if chunks else []
 
     token_scores = None
     ratio = None
-    if chunks:
+    if chunks and source_released:
         context_text = "\n".join(c.text for c in chunks)
         token_scores = compute_token_grounding(answer, context_text)
         ratio = grounding_ratio(token_scores, settings.grounding_threshold)
@@ -302,6 +358,12 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         provenance_notice += " The requested visual details could not be verified from the actual figure; caption text alone does not establish them."
     if source_abstained:
         provenance_notice = "No source-specific answer was generated because supporting material could not be verified."
+    elif claim_verification.fallback_kind == "supported_claims":
+        provenance_notice = "Source-supported answer units were retained; other generated source claims were omitted because verification did not establish support. General knowledge remains separate."
+    elif claim_verification.fallback_used:
+        provenance_notice = "The generated source explanation was withheld; exact retrieved source excerpts are shown instead. These are quotations, not independently verified explanations."
+    elif claim_verification.withheld:
+        provenance_notice += " The source answer was withheld because claim verification did not establish support."
     if question_plan.verification_required:
         reason = question_plan.verification_reason or "authoritative external evidence is required"
         provenance_notice += f" Verification note: {reason}."
@@ -323,7 +385,7 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         latency_ms=round((time.perf_counter() - started) * 1000, 1),
         comprehensive=request.comprehensive,
         sources_considered=sources_considered,
-        sources_used=sorted({chunk.source_file for chunk in chunks}),
+        sources_used=sorted({chunk.source_file for chunk in chunks}) if not (source_abstained or claim_verification.withheld) else [],
         answer_scope=request.answer_scope,
         answer_basis=basis,
         evidence_sufficiency=sufficiency,
@@ -332,4 +394,8 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         evidence_check_reason=check_reason,
         supported_aspects=evidence_decision.covered_aspects if evidence_decision else [],
         missing_aspects=evidence_decision.missing_aspects if evidence_decision else [],
+        evidence_method=method,
+        evidence_map=evidence_map,
+        evidence_trace=evidence_trace,
+        claim_verification=claim_verification,
     )

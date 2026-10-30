@@ -135,4 +135,11 @@ async def config():
             "faiss_top_k": s.faiss_top_k,
             "rerank_top_k": s.rerank_top_k,
         },
+        "evidence_policy": {
+            "method": s.evidence_method,
+            "targeted_retrieval_enabled": s.targeted_retrieval_enabled,
+            "max_targeted_queries": s.targeted_retrieval_max_queries,
+            "claim_verification_enabled": s.claim_verification_enabled,
+            "claim_repair_enabled": s.claim_repair_enabled,
+        },
     }
