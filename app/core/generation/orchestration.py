@@ -164,7 +164,7 @@ def _fallback_config(settings: Settings) -> "LLMConfig | None":
         return None
     return LLMConfig(
         provider=getattr(settings, "llm_fallback_provider", "openai_compatible"),
-        model=getattr(settings, "llm_fallback_model", "google/gemma-2-9b-it:free"),
+        model=getattr(settings, "llm_fallback_model", "qwen/qwen3.8-27b"),
         base_url=base_url,
         api_key=getattr(settings, "llm_fallback_api_key", ""),
         timeout=settings.evidence_check_timeout_seconds,
