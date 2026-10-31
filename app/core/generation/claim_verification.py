@@ -243,8 +243,14 @@ async def verify_and_repair(answer, chunks, settings, basis):
             report.model_calls += 1
             report.claims = await audit_source(source, chunks, settings)
         if has_failures(report.claims):
-            report.withheld = True
-            report.reason = "Some source claims could not be supported after verification."
+            fail_closed = getattr(settings, "claim_verification_fail_closed", True)
+            if fail_closed:
+                report.withheld = True
+                report.reason = "Some source claims could not be supported after verification."
+            else:
+                report.withheld = False
+                report.reason = "Some source claims could not be supported after verification, but answer is released (fail_closed=false)."
+                return join_answer(source, background), report
         else:
             report.reason = "Source units audited against cited passages; general knowledge was not verified."
             return join_answer(source, background), report
