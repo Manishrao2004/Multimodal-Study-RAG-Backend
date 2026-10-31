@@ -250,3 +250,16 @@ def test_topic_list_fallback_does_not_quote_an_uninspected_visual():
     report = ClaimVerification(status="unavailable", withheld=True)
     assert verifier.source_excerpt_fallback("Withheld", [], [c], report, AnswerBasis.sources,
                                             topic_items=["Active Partner"]) == "Withheld"
+
+
+@pytest.mark.asyncio
+async def test_fail_open_releases_answer_when_claims_fail_audit(settings, monkeypatch):
+    settings.claim_verification_fail_closed = False
+    settings.claim_repair_enabled = False
+    mock_client(monkeypatch, [audit("unsupported")])
+    answer = "Macroeconomics studies totals [1]."
+    text, report = await verifier.verify_and_repair(answer, [chunk()], settings, AnswerBasis.sources)
+    assert not report.withheld
+    assert text == answer
+    assert "fail_closed=false" in report.reason
+

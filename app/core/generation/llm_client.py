@@ -114,6 +114,11 @@ def build_vision_message(prompt: str, image_b64: str, provider: str, mime: str =
     }
 
 
+_key_rotator: int = 0
+
+def _parse_keys(api_key: str) -> list[str]:
+    return [k.strip() for k in (api_key or '').split(',') if k.strip()]
+
 class LLMClient:
     def __init__(self, config: LLMConfig):
         self.config = config
@@ -164,9 +169,14 @@ class LLMClient:
 
     async def _chat_openai_compatible(self, messages: list[dict], temperature: float) -> str:
         url = f"{self.config.base_url.rstrip('/')}/chat/completions"
+        keys = _parse_keys(self.config.api_key) or [""]
+        global _key_rotator
+        current_key = keys[_key_rotator % len(keys)]
+        _key_rotator += 1
+
         headers = {}
-        if self.config.api_key:
-            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        if current_key:
+            headers["Authorization"] = f"Bearer {current_key}"
         # OpenRouter requires identification headers for free-tier routing.
         if "openrouter.ai" in self.config.base_url:
             headers["HTTP-Referer"] = "http://localhost:8000"
@@ -182,7 +192,11 @@ class LLMClient:
             data = await self._post(url, payload, headers)
         except LLMError as primary_err:
             fb = self.config.fallback
-            if fb is None or primary_err.status_code != 429:
+            is_429 = primary_err.status_code == 429 or (
+                primary_err.status_code is None
+                and ("429" in str(primary_err) or "Too Many Requests" in str(primary_err))
+            )
+            if fb is None or not is_429:
                 raise
             current = _current_call.get()
             if current is not None:
@@ -201,6 +215,7 @@ class LLMClient:
         return data["choices"][0]["message"]["content"]
 
     async def _post(self, url: str, payload: dict, headers: dict) -> dict:
+        key_pool = _parse_keys(self.config.api_key) or [""]
         """POST with retry on rate limits and transient server errors.
 
         Free API tiers enforce tight per-minute token budgets — Groq's is 8k TPM
@@ -209,8 +224,13 @@ class LLMClient:
         reports metrics over whatever survived.
         """
         last_error: Exception | None = None
+        global _key_rotator
 
-        for attempt in range(self.config.max_retries + 1):
+        # Ensure enough attempts to cycle through the key pool at least twice
+        total_attempts = max(self.config.max_retries + 1, len(key_pool) * 2 if len(key_pool) > 1 else 3)
+        consecutive_429s = 0
+
+        for attempt in range(total_attempts):
             current = _current_call.get()
             if current is not None:
                 current["http_attempts"] = current.get("http_attempts", 0) + 1
@@ -231,8 +251,27 @@ class LLMClient:
             except httpx.HTTPStatusError as exc:
                 last_error = exc
                 status = exc.response.status_code
+                if status == 429:
+                    consecutive_429s += 1
+                    if len(key_pool) > 1 and consecutive_429s < len(key_pool):
+                        # Rotate immediately to next key without sleeping
+                        _key_rotator += 1
+                        next_key = key_pool[_key_rotator % len(key_pool)]
+                        headers["Authorization"] = f"Bearer {next_key}"
+                        continue
+                    # All keys in pool are temporarily rate-limited; wait for bucket replenishment
+                    consecutive_429s = 0
+                    if attempt < total_attempts - 1:
+                        delay = parse_retry_after(exc.response) or 1.5
+                        await asyncio.sleep(min(max(delay + 0.2, 1.0), 10.0))
+                        if len(key_pool) > 1:
+                            _key_rotator += 1
+                            next_key = key_pool[_key_rotator % len(key_pool)]
+                            headers["Authorization"] = f"Bearer {next_key}"
+                        continue
+
                 retryable = status == 429 or 500 <= status < 600
-                if not retryable or attempt == self.config.max_retries:
+                if not retryable or attempt == total_attempts - 1:
                     raise LLMError(
                         f"{self.config.provider} call failed ({status}) for model "
                         f"'{self.config.model}': {exc.response.text[:400]}", status_code=status
@@ -242,11 +281,12 @@ class LLMClient:
                 await asyncio.sleep(min(delay + 0.5, 30.0))
             except httpx.HTTPError as exc:
                 last_error = exc
-                if attempt == self.config.max_retries:
+                if attempt == total_attempts - 1:
                     raise LLMError(
                         f"Could not reach {self.config.provider} at "
                         f"{self.config.base_url}: {exc}"
                     ) from exc
                 await asyncio.sleep(self.config.backoff_base**attempt)
 
-        raise LLMError(f"{self.config.provider} call failed: {last_error}")
+        status_code = getattr(getattr(last_error, "response", None), "status_code", 429 if "429" in str(last_error) else None)
+        raise LLMError(f"{self.config.provider} call failed: {last_error}", status_code=status_code) from last_error
