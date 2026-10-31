@@ -27,6 +27,29 @@ statistically significant without a suitable paired analysis.
 
 ## Answer experiments
 
+### 2026-10-31 remaining-question pilot
+
+To avoid regenerating the three previously attempted questions, the live run
+in `artifacts/asqa-remaining-20261031` covered eligible ASQA questions 4–8
+only, using the current application code, the full 987-chunk SQL knowledge
+base and `openai/gpt-oss-20b` for both methods. All ten requests returned HTTP
+200. A temporary local proxy switched between the four provided Groq keys on
+HTTP 429; it did not change the model. The earlier answers use a different
+pipeline version and model configuration, so do not pool them with this run.
+
+Nine of the ten outputs were eligible for the source-section RAGAS diagnostic;
+one baseline output had no returned evidence and was excluded. All 45 metrics
+for eligible outputs eventually completed, including a retry of one failed
+faithfulness judgment. Raw responses, excluded cases, judge checkpoints and
+`ragas-summary.json` are saved locally in that directory (artifacts are ignored
+by Git). The summary separates methods and generated source sections from
+fallback excerpts and reports counts, missing values and exclusions. Two
+aspect outputs were excerpt fallbacks, not verified generated explanations.
+The 20B judge was also the generation model, so it is not an independent judge.
+The five-question convenience sample is far too small for publication claims,
+and the excerpt results must not be presented as generated-answer faithfulness.
+Mixed-answer background text was not evaluated by source-section RAGAS.
+
 `python -m app.eval.asqa_live_http` evaluates the actual local `/ask` API against
 the current complete knowledge base. It checks the running pipeline and index
 identity, logs configured models and successful response model calls, stores
