@@ -101,7 +101,10 @@ def source_units(source):
             continue
         # An ordered-list marker is formatting, not a sentence. Decimal
         # numbers and numeric prefixes must never become standalone claims.
-        for text in re.split(r"(?<!\d)(?<=[.!?])\s+(?=[A-Z])", line):
+        for text in re.split(
+            r"(?<!\d)(?<!\b(?i:St)\.)(?<!\b(?i:Mr)\.)(?<!\b(?i:Mrs)\.)(?<!\b(?i:Ms)\.)(?<!\b(?i:Dr)\.)(?<!\b(?i:Prof)\.)(?<!\b(?i:Jr)\.)(?<!\b(?i:Sr)\.)(?<=[.!?])\s+(?=[A-Z])",
+            line,
+        ):
             units.append((f"c{len(units) + 1}", text))
         i += 1
     return units
