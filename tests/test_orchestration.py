@@ -18,7 +18,7 @@ async def test_langchain_rewrites_follow_up_as_standalone_query(settings, monkey
     monkeypatch.setattr(
         orchestration,
         "_client",
-        lambda _settings: FakeClient(
+        lambda _settings, *_args: FakeClient(
             '{"standalone_query":"Explain each type of partner",'
             '"referenced_items":["each type of partner"],'
             '"requested_aspects":["explanation"],'
@@ -26,12 +26,12 @@ async def test_langchain_rewrites_follow_up_as_standalone_query(settings, monkey
             '"verification_required":false,"verification_reason":null}'
         ),
     )
-    rewritten = await orchestration.rewrite_conversation_query(
+    plan = await orchestration.plan_question(
         "explain each",
         [ConversationTurn(role="user", content="what types of partners")],
         settings,
     )
-    assert rewritten == "Explain each type of partner"
+    assert plan.standalone_query == "Explain each type of partner"
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_langchain_returns_validated_evidence_decision(settings, monkeypat
     monkeypatch.setattr(
         orchestration,
         "_client",
-        lambda _settings: FakeClient(
+        lambda _settings, *_args: FakeClient(
             '{"sufficiency":"partial","topic_relevant":true,'
             '"reason":"The passages list types but do not explain them."}'
         ),
@@ -80,7 +80,7 @@ async def test_planner_handles_multiple_query_shapes(
     monkeypatch.setattr(
         orchestration,
         "_client",
-        lambda _settings: FakeClient(
+        lambda _settings, *_args: FakeClient(
             orchestration.QuestionPlan(
                 standalone_query=standalone,
                 requested_aspects=["requested coverage"],

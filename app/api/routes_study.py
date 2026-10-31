@@ -1,8 +1,8 @@
 """Study-productivity endpoints (plan Sec. 5.2): summarise, compare, quiz.
 
-All three retrieve first and generate second, exactly like /ask, so every
-output carries the same citation guarantees rather than being free-form LLM
-text.
+All three retrieve first and generate second. Citation markers are checked
+against retrieved passages, but this does not establish semantic support;
+these routes do not run the aspect question-answering claim audit.
 """
 
 from __future__ import annotations

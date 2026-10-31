@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_app_state
 from app.api import routes_ask
 from app.core.generation import answer
-from app.core.generation.orchestration import EvidenceDecision
+from app.core.generation.orchestration import AspectSupport, EvidenceDecision
 from app.core.retrieval.sufficiency import assess_evidence_sufficiency
 from app.models.schemas import EvidenceSufficiency, QuestionPlan, RetrievalMode
 from tests.conftest import make_chunk
@@ -46,7 +46,7 @@ def test_background_is_added_in_auto_but_source_only_remains_strict(settings, mo
             return [(chunk, 0.95)]
 
     async def plan(*args):
-        return QuestionPlan(standalone_query="Explain the types of partners")
+        return QuestionPlan(standalone_query="Explain the types of partners", requested_aspects=["definition of each type"])
 
     async def evaluate(*args):
         # The explicit missing-knowledge signal wins even if the model's
@@ -57,6 +57,7 @@ def test_background_is_added_in_auto_but_source_only_remains_strict(settings, mo
             needs_background=True,
             topic_items=["General Partner", "Sleeping Partner", "Nominal Partner"],
             missing_aspects=["definition of each type"],
+            supports=[AspectSupport(aspect="definition of each type", chunk_id=chunk.chunk_id, quote=chunk.text)],
         )
 
     async def mixed(query, chunks, config, *args, **kwargs):
@@ -76,7 +77,7 @@ def test_background_is_added_in_auto_but_source_only_remains_strict(settings, mo
     app.include_router(routes_ask.router)
     app.dependency_overrides[get_app_state] = lambda: SimpleNamespace(settings=settings, retrieval=Retrieval())
     response = TestClient(app).post("/ask", json={
-        "query": "Explain the types of partners", "answer_scope": scope, "detect_contradictions": False,
+        "query": "Explain the types of partners", "answer_scope": scope, "evidence_method": "adaptive", "detect_contradictions": False,
     })
     assert response.status_code == 200
     result = response.json()

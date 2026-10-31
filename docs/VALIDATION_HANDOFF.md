@@ -1,5 +1,8 @@
 # New pipeline validation handoff — 2026-10-30
 
+This is a historical handoff. Later ASQA results are documented in
+`ASQA_VALIDATION.md`; do not treat the counts below as the latest run.
+
 The user asked for end-to-end validation on the populated ASQA passages, real
 RAGAS scoring, and fixes for problems encountered. Work was stopped at their
 request to preserve progress. Do not present this as complete or publication-ready.
