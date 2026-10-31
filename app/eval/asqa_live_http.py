@@ -97,7 +97,9 @@ async def prepare(args):
     if not cases:
         raise ValueError("No ASQA questions match the populated corpus")
     by_id = {str(r["sample_id"]): r for r in raw}
-    cases = [{**c, "qa_pairs": by_id[c["sample_id"]]["qa_pairs"]} for c in cases[:args.count]]
+    cases = [{**c, "qa_pairs": by_id[c["sample_id"]]["qa_pairs"]} for c in cases[args.offset:args.offset + args.count]]
+    if not cases:
+        raise ValueError("No ASQA cases remain at the requested offset")
     kb = kb_fingerprint(args.db)
     async with httpx.AsyncClient(trust_env=False) as client:
         config = await read_config(client, args.base_url.rstrip("/"))
@@ -107,7 +109,7 @@ async def prepare(args):
         "design": "Live /ask through running application, first eligible ASQA dev samples from imported first 100; full current knowledge base; primary and fallback models recorded per response. Not an official ASQA score.",
         "arrow_sha256": hashlib.sha256(args.arrow.read_bytes()).hexdigest(),
         "loaded_pipeline_sha256": identity, "knowledge_base": kb,
-        "server_config": config, "methods": args.methods, "count": args.count,
+        "server_config": config, "methods": args.methods, "count": args.count, "offset": args.offset,
         "excluded_no_matched_context": len(excluded), "case_ids": [c["sample_id"] for c in cases],
         "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     }
@@ -121,12 +123,13 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--count", type=int, default=8)
+    parser.add_argument("--offset", type=int, default=0, help="Skip this many eligible questions")
     parser.add_argument("--methods", nargs="+", choices=["edurag", "adaptive", "aspect"], default=["edurag", "aspect"])
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if not re_is_loopback(args.base_url):
         parser.error("Only localhost/127.0.0.1 HTTP backends are supported")
-    if args.count < 1 or len(args.methods) != len(set(args.methods)):
+    if args.count < 1 or args.offset < 0 or len(args.methods) != len(set(args.methods)):
         parser.error("Count must be positive and methods unique")
     cases, manifest = asyncio.run(prepare(args))
     previous = {}
