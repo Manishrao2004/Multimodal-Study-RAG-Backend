@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.generation import answer, orchestration
-from app.models.schemas import QuestionPlan
+from app.models.schemas import AspectEvidence, QuestionPlan
 from app.tests.conftest import chunk
 
 
@@ -59,3 +59,40 @@ async def test_mixed_explanation_is_anchored_to_retrieved_topic_and_names(settin
     supplemental = next(sent for sent in messages if "TOPIC ANCHORS" in sent[1]["content"])
     assert "Do not ask the student to choose" in supplemental[0]["content"]
     assert "Active Partner" in supplemental[1]["content"] and "Sleeping Partner" in supplemental[1]["content"]
+
+
+def test_planner_preserves_explicit_word_count_when_rewrite_omits_it():
+    plan = QuestionPlan(standalone_query="Tell me about Fortnite", response_format="concise")
+    result = orchestration.preserve_question_scope(plan, "Tell me about Fortnite, around 500 words")
+    assert "500 words" in result.response_format
+
+
+def test_planner_preserves_word_limit_qualifier():
+    plan = QuestionPlan(standalone_query="Explain the topic", response_format="brief")
+    result = orchestration.preserve_question_scope(plan, "Explain the topic in no more than 100 words")
+    assert "no more than 100 words" in result.response_format
+
+
+@pytest.mark.asyncio
+async def test_mixed_general_section_can_explain_missing_aspects(settings, monkeypatch):
+    messages = []
+    async def chat(sent, **kwargs):
+        messages.append(sent)
+        return "Fixture"
+    monkeypatch.setattr(answer, "build_client", lambda _: SimpleNamespace(chat=chat))
+    aspect = AspectEvidence(aspect_id="a1", aspect="gameplay", status="missing")
+    await answer.generate_mixed_answer("Tell me about the game in 500 words", [chunk()], settings, evidence_map=[aspect])
+    supplemental = next(sent for sent in messages if "TOPIC ANCHORS" in sent[1]["content"])
+    assert "allowed to use general model knowledge" in supplemental[0]["content"]
+    assert "Explain missing or partial aspects using general knowledge" in supplemental[1]["content"]
+    assert "do not fill them from memory" not in supplemental[1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_empty_source_generation_shows_limitation_instead_of_blank_section(settings, monkeypatch):
+    async def chat(sent, **kwargs):
+        return "" if "RETRIEVED EVIDENCE" in sent[1]["content"] else "General explanation."
+    monkeypatch.setattr(answer, "build_client", lambda _: SimpleNamespace(chat=chat))
+    result = await answer.generate_mixed_answer("Explain", [chunk()], settings)
+    assert "I couldn't generate a source-based explanation" in result
+    assert "General explanation." in result
