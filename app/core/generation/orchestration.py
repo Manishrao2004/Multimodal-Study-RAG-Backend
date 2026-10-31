@@ -257,15 +257,6 @@ async def plan_question(
     return preserve_question_scope(result, query)
 
 
-async def rewrite_conversation_query(
-    query: str,
-    history: list[ConversationTurn],
-    settings: Settings,
-) -> str:
-    """Compatibility wrapper for callers that only need the retrieval query."""
-    return (await plan_question(query, history, settings)).standalone_query
-
-
 async def evaluate_evidence(
     question_plan: QuestionPlan,
     chunks: list[Chunk],
