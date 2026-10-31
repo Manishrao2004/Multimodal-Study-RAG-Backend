@@ -10,6 +10,7 @@ from app.models.schemas import Chunk, Citation
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)]")
 _CITATION_VARIANT_PATTERN = re.compile(r"[【〔［]\s*(\d+)\s*[】〕］]")
+_LINE_CITATION_PATTERN = re.compile(r"【\s*(\d+)\s*†\s*L\d+(?:\s*[-–]\s*L?\d+)?\s*】", re.I)
 
 
 def normalize_citation_markers(answer_text: str) -> str:
@@ -20,6 +21,7 @@ def normalize_citation_markers(answer_text: str) -> str:
     normalized before rendering and validation so provider typography cannot
     silently break citation provenance.
     """
+    answer_text = _LINE_CITATION_PATTERN.sub(lambda match: f"[{match.group(1)}]", answer_text)
     return _CITATION_VARIANT_PATTERN.sub(lambda match: f"[{match.group(1)}]", answer_text)
 
 

@@ -281,6 +281,7 @@ class AskResponse(BaseModel):
     evidence_map: list[AspectEvidence] = Field(default_factory=list)
     evidence_trace: EvidenceTrace = Field(default_factory=EvidenceTrace)
     claim_verification: ClaimVerification = Field(default_factory=ClaimVerification)
+    model_calls: list[dict] = Field(default_factory=list)
 
 
 class ScreenshotAskResponse(BaseModel):

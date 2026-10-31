@@ -35,6 +35,14 @@ async def test_supported_citation_and_verbatim_quote_pass(settings, monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_line_citation_still_requires_verbatim_support(settings, monkeypatch):
+    mock_client(monkeypatch, [audit()])
+    text, result = await verifier.verify_and_repair("A transformer transfers energy 【1†L1-L2】.", [chunk()], settings, AnswerBasis.sources)
+    assert text == "A transformer transfers energy [1]."
+    assert result.claims[0].status == "supported" and not result.withheld
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("text,quote", [
     ("A transformer transfers energy [2].", "A transformer transfers energy through electromagnetic induction."),
     ("A transformer transfers energy [1].", "A transformer does not transfer energy."),
@@ -69,6 +77,24 @@ async def test_failed_repair_never_loops(settings, monkeypatch):
     calls = mock_client(monkeypatch, [audit("unsupported"), "Still wrong [1].", audit("unsupported")])
     _, result = await verifier.verify_and_repair("Wrong [1].", [chunk()], settings, AnswerBasis.sources)
     assert result.withheld and len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_fail_open_never_releases_known_unsupported_claim_after_repair_fails(settings, monkeypatch):
+    settings.claim_verification_fail_closed = False
+    mock_client(monkeypatch, [audit("unsupported"), TimeoutError()])
+    text, report = await verifier.verify_and_repair("Wrong [1].", [chunk()], settings, AnswerBasis.sources)
+    assert report.withheld and "Wrong [1]" not in text
+    assert report.initial_claims[0].status == "unsupported"
+
+
+@pytest.mark.asyncio
+async def test_fail_open_reports_unavailable_when_no_audit_completed(settings, monkeypatch):
+    settings.claim_verification_fail_closed = False
+    mock_client(monkeypatch, [TimeoutError()])
+    text, report = await verifier.verify_and_repair("Draft [1].", [chunk()], settings, AnswerBasis.sources)
+    assert text == "Draft [1]." and not report.withheld
+    assert report.status == "unavailable" and "unverified" in report.reason
 
 
 @pytest.mark.asyncio

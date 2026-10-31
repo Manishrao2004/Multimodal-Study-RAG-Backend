@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, model_validator
 from app.api.routes_ask import ask
 from app.config import get_settings
 from app.core.retrieval.bm25_index import BM25Index
+from app.core.generation.llm_client import capture_llm_calls
 from app.eval.validation_metrics import interval
 from app.models.schemas import AskRequest, Chunk, ChunkType
 
@@ -105,7 +106,7 @@ def summarize(records):
             predictions = {" ".join(a["aspect"].casefold().split()): a["status"]
                            for a in row["response"].get("evidence_map", [])}
             # Baselines that do not produce maps have no aspect-status score.
-            if predictions:
+            if predictions and method != "whole_question":
                 for name, expected in row["expected_aspects"].items():
                     scored += 1
                     correct += predictions.get(" ".join(name.casefold().split())) == expected
@@ -117,7 +118,7 @@ def summarize(records):
             "latency_ms_completed": interval([r["elapsed_ms"] for r in ok]),
             "latency_ms_all_attempts": interval([r["elapsed_ms"] for r in rows]),
             "source_withheld": sum(r["response"].get("claim_verification", {}).get("withheld", False) for r in ok),
-            "note": "Automatic aspect labels only; source-claim correctness and usefulness require independent review.",
+            "note": "Exact-name aspect status agreement, not semantic alignment. Whole-question mode has no comparable per-aspect map. Source-claim correctness and usefulness require independent review.",
         }
     return output
 
@@ -131,7 +132,7 @@ def paired_aspect_differences(records):
     """
     import random
     results = []
-    for other in ("aspect_no_retrieval", "aspect_no_verification", "whole_question"):
+    for other in ("aspect_no_retrieval", "aspect_no_verification"):
         left = {r["id"]: r for r in records if r["method"] == "aspect"}
         right = {r["id"]: r for r in records if r["method"] == other}
         pairs = []
@@ -152,7 +153,7 @@ def paired_aspect_differences(records):
         estimates.sort()
         results.append({"comparison": f"aspect minus {other}", "paired_cases": len(pairs),
                         "groups": len(groups), "mean_difference": sum(d for _, d in pairs) / len(pairs),
-                        "cluster_bootstrap95": [estimates[49], estimates[1949]],
+                        "cluster_bootstrap95": [estimates[49], estimates[1949]] if len(groups) > 1 else None,
                         "note": "Small developer fixtures can give degenerate intervals; not independent evidence of generalization."})
     return results
 
@@ -186,11 +187,15 @@ def manifest(dataset_path, dataset, settings, methods):
         "python": platform.python_version(), "methods": methods,
         "models": {"answer": settings.llm_model, "provider": settings.llm_provider,
                    "answer_endpoint_sha256": hashlib.sha256(settings.llm_base_url.encode()).hexdigest(),
+                   "fallback_enabled": bool(settings.llm_fallback_base_url),
+                   "fallback_provider": settings.llm_fallback_provider if settings.llm_fallback_base_url else None,
+                   "fallback_model": settings.llm_fallback_model if settings.llm_fallback_base_url else None,
+                   "fallback_endpoint_sha256": hashlib.sha256(settings.llm_fallback_base_url.encode()).hexdigest() if settings.llm_fallback_base_url else None,
                    "reranker": settings.reranker_model, "embedding": settings.embedding_model},
         "settings": {method: method_settings(settings, method).model_dump(include={
             "evidence_method", "targeted_retrieval_enabled", "targeted_retrieval_max_queries",
             "targeted_retrieval_top_k", "targeted_retrieval_timeout_seconds", "evidence_check_timeout_seconds",
-            "claim_verification_enabled", "claim_repair_enabled", "claim_verification_max_claims",
+            "claim_verification_enabled", "claim_verification_fail_closed", "claim_repair_enabled", "claim_verification_max_claims",
             "claim_verification_max_chars", "aspect_decomposition_enabled"}) for method in methods},
         "code_sha256": {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in code_paths},
         "design": "Controlled initial contexts; targeted local BM25; no end-to-end retrieval or learning-effect claim",
@@ -208,12 +213,14 @@ async def run_live(dataset, methods, settings, out):
                 state = SimpleNamespace(settings=config, retrieval=ControlledRetrieval(case, corpus))
                 row = {**case.model_dump(), "method": method, "status": "error"}
                 started = time.perf_counter()
-                try:
-                    response = await asyncio.wait_for(ask(AskRequest(query=case.query, answer_scope=case.scope,
-                        evidence_method=config.evidence_method, detect_contradictions=False), state), timeout=300)
-                    row.update(status="ok", response=response.model_dump(mode="json"))
-                except Exception as exc:
-                    row["error_type"] = type(exc).__name__
+                with capture_llm_calls() as calls:
+                    try:
+                        response = await asyncio.wait_for(ask(AskRequest(query=case.query, answer_scope=case.scope,
+                            evidence_method=config.evidence_method, detect_contradictions=False), state), timeout=300)
+                        row.update(status="ok", response=response.model_dump(mode="json"))
+                    except Exception as exc:
+                        row["error_type"] = type(exc).__name__
+                    row["llm_calls"] = calls
                 row["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
                 records.append(row)
                 (out / "records.json").write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
