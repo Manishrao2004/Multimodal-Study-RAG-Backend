@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # --- LLM fallback (used when primary provider rate-limits) ---------------
     # Leave llm_fallback_base_url empty to disable fallback entirely.
     llm_fallback_provider: str = "openai_compatible"
-    llm_fallback_model: str = "google/gemma-2-9b-it:free"
+    llm_fallback_model: str = "qwen/qwen3.8-27b"
     llm_fallback_base_url: str = ""
     llm_fallback_api_key: str = ""
 
