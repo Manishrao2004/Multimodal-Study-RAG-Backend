@@ -25,6 +25,15 @@ def audit(status="supported", quote="A transformer transfers energy through elec
         "supports": [{"chunk_id": "c1", "quote": quote}], "reason": "Fixture"}]}
 
 
+def test_source_units_keep_st_louis_with_the_claim_it_completes():
+    answer = "The Rams franchise moved to St. Louis in 1994 [2]. They played their first game there in 1995 [1]."
+    units = verifier.source_units(answer)
+    assert [unit for _, unit in units] == [
+        "The Rams franchise moved to St. Louis in 1994 [2].",
+        "They played their first game there in 1995 [1].",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_supported_citation_and_verbatim_quote_pass(settings, monkeypatch):
     mock_client(monkeypatch, [audit()])

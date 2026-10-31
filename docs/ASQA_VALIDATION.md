@@ -38,6 +38,11 @@ ten questions. Two aspect responses withheld their generated source explanation.
 The code fingerprint is recorded in the manifest. Subsequent non-behavioral
 documentation changes are not part of that recorded fingerprint.
 
+Post-run inspection found that the claim splitter broke `St. Louis` at `St.`
+and could release a sentence fragment. The splitter was subsequently corrected
+and tested against that example. The numbers below predate that fix and must
+not be presented as measurements of the updated code.
+
 Seventeen of the 20 responses were eligible for the source-section diagnostic:
 eight baseline answers, seven generated aspect source sections, and two aspect
 excerpt fallbacks. Two baseline responses had no returned evidence and one
@@ -46,6 +51,19 @@ after retries; raw batch results retain prior judge errors. The judge was not
 independent, the reference is the first ASQA long-answer annotation, and the
 mixed-answer background was not evaluated. Passage citations and source
 sections must be reviewed separately by a human.
+
+| RAGAS metric | EduRAG baseline: 8 source answers | Aspect: 6 mixed source sections | Aspect: 1 source-only answer | Aspect: 2 excerpt fallbacks |
+| --- | ---: | ---: | ---: | ---: |
+| Faithfulness | 0.792 | 0.917 | 1.000 | 0.909 |
+| Context precision | 0.854 | 1.000 | 1.000 | 0.500 |
+| Context recall | 0.542 | 0.528 | 0.667 | 0.500 |
+| Factual correctness | 0.413 | 0.372 | 0.400 | 0.200 |
+| Answer relevancy | 0.910 | 0.824 | 0.991 | 0.719 |
+
+These column means use different sets of outputs and are not paired results.
+The two excerpt fallbacks are not generated explanations; the mixed-answer
+scores cover the source section only. These model-judged scores are not proof
+of factuality or citation correctness.
 
 The report contains seven paired cases where both methods had eligible generated
 source content. Mean aspect-minus-baseline differences for these seven cases
