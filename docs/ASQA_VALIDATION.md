@@ -27,6 +27,62 @@ statistically significant without a suitable paired analysis.
 
 ## Answer experiments
 
+### Expanded ten-question pilot (2026-10-31)
+
+`artifacts/asqa-expanded-20261031` contains a separate run for the next ten
+eligible ASQA dev questions (offset 8). It uses the full live 987-chunk SQL
+knowledge base, a fixed `openai/gpt-oss-20b` answer model, both `edurag` and
+`aspect` methods, and the same 20B model as RAGAS judge through the temporary
+Groq key-switching proxy. All 20 HTTP requests completed; each method answered
+ten questions. Two aspect responses withheld their generated source explanation.
+The code fingerprint is recorded in the manifest. Subsequent non-behavioral
+documentation changes are not part of that recorded fingerprint.
+
+Seventeen of the 20 responses were eligible for the source-section diagnostic:
+eight baseline answers, seven generated aspect source sections, and two aspect
+excerpt fallbacks. Two baseline responses had no returned evidence and one
+aspect response had a non-source basis. All 85 eligible RAGAS scores completed
+after retries; raw batch results retain prior judge errors. The judge was not
+independent, the reference is the first ASQA long-answer annotation, and the
+mixed-answer background was not evaluated. Passage citations and source
+sections must be reviewed separately by a human.
+
+The report contains seven paired cases where both methods had eligible generated
+source content. Mean aspect-minus-baseline differences for these seven cases
+were +0.167 faithfulness, +0.167 context precision, +0.071 context recall,
+-0.049 factual correctness and -0.063 answer relevancy. This is a tiny,
+convenience sample and is not proof of a statistically significant improvement
+or a comparison with the base paper. In particular, excerpt fallbacks and
+unscored outputs are excluded from these paired differences and are reported
+separately. The JSON summary records confidence intervals and denominators.
+
+Mean observed request time was approximately 8.8 seconds for the baseline and
+21.0 seconds for aspect in this run; these values are provider- and load-specific.
+Short-answer surface recall in `summary.json` is a lexical diagnostic, not
+official ASQA accuracy. Raw records, RAGAS inputs, batch checkpoints, and
+`ragas-summary.json` are local artifacts and are not included in Git.
+
+To repeat an experiment, run these from the backend repository with the
+evaluation dependencies installed. Set `$arrow` to the cached ASQA dev Arrow
+file and `$database` to the populated SQLite database. Use a new output
+directory and start the backend with the intended fixed model first.
+
+```powershell
+uv sync --group dev --group eval
+$arrow = 'PATH_TO_ASQA_DEV_ARROW'
+$database = 'data/kb/knowledge_base.sqlite3'
+uv run python -m app.eval.asqa_live_http --arrow $arrow --db $database --out artifacts/my-asqa-run --count 8 --methods edurag aspect
+uv run python -m app.eval.asqa_ragas_records artifacts/my-asqa-run/records.json --arrow $arrow --out artifacts/my-asqa-run/ragas-input.json --source-sections
+uv run --group eval python -m app.eval.ragas_eval artifacts/my-asqa-run/ragas-input.json --out artifacts/my-asqa-run/ragas.json
+uv run python -m app.eval.asqa_ragas_report artifacts/my-asqa-run/ragas-input.json artifacts/my-asqa-run/ragas.json --out artifacts/my-asqa-run/ragas-summary.json
+```
+
+To retry failed model requests or judgments, repeat the respective command
+with `--resume`; the runner rejects changed data, models or settings. A failed
+HTTP response does not expose server-side model attempts, so its model calls
+cannot be inferred. Never change `.env` keys during a run without documenting
+the provider configuration and starting a new run where required.
+
 ### 2026-10-31 remaining-question pilot
 
 To avoid regenerating the three previously attempted questions, the live run
@@ -58,6 +114,15 @@ each result as it completes, and supports resuming an unchanged run. Run
 telemetry. To avoid changing models midway, configure a single provider and no
 fallback before starting; a fallback-enabled run records fallback use but is
 not a controlled single-model comparison.
+
+The reporting command `python -m app.eval.asqa_ragas_report --help` aggregates
+RAGAS batches by method and answer kind, checks each judgment against the exact
+input record, and reports missing scores and exclusions. Paired differences use
+only the same question with eligible generated source content from both
+methods; excerpt fallbacks and missing scores are excluded. For mixed answers
+only the source section is scored, so these differences do not assess general
+background. A single paired case has no confidence interval. Store raw inputs
+and judge outputs alongside the report for audit and human review.
 
 `python -m app.eval.asqa_answers` instead supplies annotated contexts for a
 controlled, in-process probe. It is a different experiment from live retrieval.

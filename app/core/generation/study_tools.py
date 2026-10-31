@@ -2,7 +2,7 @@
 
 Summaries, document comparison and quiz/flashcard generation all reuse the same
 retrieval + citation machinery as /ask; only the prompt and the output shape
-change. The important property carried over from EduRAG is strict grounding:
+change. The citation check enforces a valid passage reference:
 a generated quiz question whose citation does not point at a real retrieved
 chunk is *dropped*, not shown, which extends the paper's citation-validation
 idea to a new output format rather than trusting the model to behave.

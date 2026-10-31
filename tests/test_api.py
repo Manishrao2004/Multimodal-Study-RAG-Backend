@@ -19,6 +19,19 @@ STUB_ANSWER = (
 
 @pytest.fixture
 def client(populated_state, monkeypatch):
+    monkeypatch.setattr("app.main.build_app_state", lambda: populated_state)
+    # These endpoint tests exercise retrieval, citations and attribution; the
+    # semantic evidence decision is stubbed so no hosted judge is required.
+    from app.core.generation.orchestration import AspectSupport, EvidenceDecision
+    from app.models.schemas import EvidenceSufficiency, EvidenceTrace
+    populated_state.settings.claim_verification_enabled = False
+
+    async def fake_assess(plan, ranked, *_args):
+        supports = [AspectSupport(aspect=plan.standalone_query, chunk_id=c.chunk_id, quote=c.text[:100]) for c, _ in ranked]
+        decision = EvidenceDecision(sufficiency=EvidenceSufficiency.strong, reason="test fixture", topic_relevant=True, supports=supports)
+        return ranked, decision, [], EvidenceTrace(), "completed"
+
+    monkeypatch.setattr("app.api.routes_ask.assess_aspects", fake_assess)
     async def fake_generate_answer(query, chunks, settings, disagreements=None, history=None, **kwargs):
         return STUB_ANSWER
 
@@ -133,6 +146,7 @@ class TestAsk:
         from app.state import AppState
 
         empty = AppState(settings=settings, kb=kb, retrieval=RetrievalIndex(kb, settings))
+        monkeypatch.setattr("app.main.build_app_state", lambda: empty)
         app.dependency_overrides[get_app_state] = lambda: empty
         with TestClient(app) as test_client:
             response = test_client.post(
@@ -239,10 +253,11 @@ class TestUnhandledExceptionHandler:
             raise RuntimeError("internal detail that must not leak: /etc/shadow")
 
         monkeypatch.setattr("app.api.routes_ask.generate_answer", boom)
+        monkeypatch.setattr("app.main.build_app_state", lambda: populated_state)
         app.dependency_overrides[get_app_state] = lambda: populated_state
         try:
             with TestClient(app, raise_server_exceptions=False) as test_client:
-                response = test_client.post("/ask", json={"query": "reciprocal rank fusion"})
+                response = test_client.post("/ask", json={"query": "reciprocal rank fusion", "answer_scope": "sources_only", "evidence_method": "edurag"})
         finally:
             app.dependency_overrides.clear()
 
