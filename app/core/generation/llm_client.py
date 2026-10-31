@@ -215,7 +215,6 @@ class LLMClient:
         return data["choices"][0]["message"]["content"]
 
     async def _post(self, url: str, payload: dict, headers: dict) -> dict:
-        key_pool = _parse_keys(self.config.api_key) or [""]
         """POST with retry on rate limits and transient server errors.
 
         Free API tiers enforce tight per-minute token budgets — Groq's is 8k TPM
@@ -223,8 +222,10 @@ class LLMClient:
         benchmark. Without this, a run silently loses a third of its queries and
         reports metrics over whatever survived.
         """
+        key_pool = _parse_keys(self.config.api_key) or [""]
+        current_key = headers.get("Authorization", "").removeprefix("Bearer ")
+        key_index = key_pool.index(current_key) if current_key in key_pool else 0
         last_error: Exception | None = None
-        global _key_rotator
 
         # Ensure enough attempts to cycle through the key pool at least twice
         total_attempts = max(self.config.max_retries + 1, len(key_pool) * 2 if len(key_pool) > 1 else 3)
@@ -255,9 +256,8 @@ class LLMClient:
                     consecutive_429s += 1
                     if len(key_pool) > 1 and consecutive_429s < len(key_pool):
                         # Rotate immediately to next key without sleeping
-                        _key_rotator += 1
-                        next_key = key_pool[_key_rotator % len(key_pool)]
-                        headers["Authorization"] = f"Bearer {next_key}"
+                        key_index = (key_index + 1) % len(key_pool)
+                        headers["Authorization"] = f"Bearer {key_pool[key_index]}"
                         continue
                     # All keys in pool are temporarily rate-limited; wait for bucket replenishment
                     consecutive_429s = 0
@@ -265,9 +265,8 @@ class LLMClient:
                         delay = parse_retry_after(exc.response) or 1.5
                         await asyncio.sleep(min(max(delay + 0.2, 1.0), 10.0))
                         if len(key_pool) > 1:
-                            _key_rotator += 1
-                            next_key = key_pool[_key_rotator % len(key_pool)]
-                            headers["Authorization"] = f"Bearer {next_key}"
+                            key_index = (key_index + 1) % len(key_pool)
+                            headers["Authorization"] = f"Bearer {key_pool[key_index]}"
                         continue
 
                 retryable = status == 429 or 500 <= status < 600

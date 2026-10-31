@@ -1,6 +1,26 @@
 import pytest
+import httpx
 
 from app.core.generation.llm_client import LLMClient, LLMConfig, LLMError, capture_llm_calls
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_tries_each_key_before_fallback(monkeypatch):
+    from app.core.generation import llm_client
+
+    monkeypatch.setattr(llm_client, "_key_rotator", 0)
+    attempted = []
+
+    async def post(self, url, json, headers):
+        attempted.append(headers.get("Authorization"))
+        status = 200 if len(attempted) == 3 else 429
+        request = httpx.Request("POST", url)
+        return httpx.Response(status, request=request, json={"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    client = LLMClient(LLMConfig(provider="openai_compatible", model="test", base_url="http://local", api_key="one,two,three"))
+    assert await client.chat([{"role": "user", "content": "test"}]) == "ok"
+    assert attempted == ["Bearer one", "Bearer two", "Bearer three"]
 
 
 @pytest.mark.asyncio

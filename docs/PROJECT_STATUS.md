@@ -1,15 +1,16 @@
 # Project status and research evidence
 
 Verity is a local multimodal study assistant. The current text-question path
-uses aspect-aware evidence assessment and source-claim checking when source
-evidence is used. Study tools and screenshot questions have separate paths and
+uses aspect-aware evidence assessment and can use source-claim checking when
+enabled and source evidence is used. Study tools and screenshot questions have separate paths and
 have not been evaluated as if they used the same claim audit. See the root
 README for setup, modes, storage and limitations.
 
 ## Engineering verification
 
-- Backend regression suite: 439 passed, two optional Office-rendering tests
-  skipped. The optional tests require a local Office or LibreOffice renderer.
+- Backend regression suites include optional Office-rendering tests, which
+  require a local Office or LibreOffice renderer. Results depend on the code
+  revision and local dependencies; run the suite for the current status.
 - Frontend build, lint and TypeScript checks passed after the study-metric label
   corrections. Generated artifacts and personal data remain outside Git.
 - These checks verify code behavior using fixtures; they do not prove factual

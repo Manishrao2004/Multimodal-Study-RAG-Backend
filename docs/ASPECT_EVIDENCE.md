@@ -16,6 +16,11 @@ claims.
 
 ## Answer pipeline
 
+This describes the full pipeline when targeted retrieval, claim verification,
+and repair are enabled. Each can be disabled independently in `.env`; the
+`aspect` method name alone does not imply these stages ran. See
+[configuration](CONFIGURATION.md) and check `/config` for the running settings.
+
 1. Resolve the question and explicitly requested aspects with the existing
    planner. Stable IDs (`a1`, `a2`, ...) follow request order. A failed planner
    falls back to the whole question. No extra comparison criteria are invented.
@@ -96,7 +101,7 @@ errors. Conservative withholding can reduce usefulness or over-abstain.
 | --- | --- |
 | `edurag` | Strict source-grounded generation; no planner, aspect map, gap retrieval, or claim audit |
 | `adaptive` | Existing Auto policy with whole-answer evidence assessment |
-| `aspect` | Aspect assessment, one gap retrieval round, and source-claim audit |
+| `aspect` | Aspect assessment, with optional gap retrieval and source-claim audit |
 
 Explicit General knowledge bypasses source processing. `edurag` is an
 EduRAG-style baseline, not a bit-for-bit reproduction: this project retains

@@ -6,7 +6,7 @@ Verity answers questions using a student's uploaded material. It supports text, 
 
 1. Ingestion extracts text; configured vision and speech models can caption figures and transcribe audio. Chunks and source metadata are saved in SQLite.
 2. Retrieval combines BM25 and local embeddings, optionally expands the query with HyDE, and reranks passages with a local cross-encoder.
-3. For text questions, the default `aspect` method assesses requested aspects, optionally searches for gaps, and audits generated source claims. It can withhold claims or show excerpts if verification fails. These checks are model-assisted and can be wrong or unavailable.
+3. For text questions, the default `aspect` method assesses requested aspects. When enabled, targeted retrieval searches for gaps and claim verification audits generated source claims; verification can withhold claims or show excerpts. These checks are model-assisted and can be wrong or unavailable.
 4. Auto decides between source-based, mixed and general-knowledge answers. My sources restricts answers to uploaded material. General knowledge bypasses document retrieval and source-claim checks. `aspect` is an internal evidence method, not a frontend mode or separate model.
 
 `edurag` and `adaptive` remain available as evaluation baselines; they are not claims of an exact reproduction of the base paper. Study tools use retrieval and their own generation and citation checks, but do not yet run the full aspect/claim-audit path. Screenshot questions use the separate vision path. Valid citation numbers and token overlap do not prove factual support.
@@ -20,7 +20,7 @@ uv sync --group dev --group eval
 uv run uvicorn app.main:app --reload
 ```
 
-The API runs at `http://127.0.0.1:8000`; `/docs` lists routes and `/config` shows configured models and evidence settings without verifying connectivity. The frontend setup is in its README. Models may need to be downloaded on first use. Hosted calls can incur usage and rate limits.
+The API runs at `http://127.0.0.1:8000`; `/docs` lists routes and `/config` shows configured models and evidence settings without verifying connectivity. The frontend setup is in its README. Models may need to be downloaded on first use. Hosted calls can incur usage and rate limits. See [configuration and operations](docs/CONFIGURATION.md) for provider setup, key rotation, latency and the difference between enabled and available checks.
 
 ## Data and history
 
