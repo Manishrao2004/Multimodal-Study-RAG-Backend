@@ -85,6 +85,16 @@ def preserve_question_scope(plan: QuestionPlan, query: str) -> QuestionPlan:
         r"(?:types|kinds|categories)\s+of\s+[^?\n]{1,250}[?.]?\s*", query, re.I
     ) and not re.search(r"\b(?:explain(?:ed|ing)?|explanations?|definitions?|meanings?|describe|details?|examples?|advantages?|disadvantages?)\b", query, re.I):
         plan = plan.model_copy(update={"requested_aspects": ["list"], "referenced_items": []})
+    word_count = re.search(
+        r"\b(?:(?:no more than|no fewer than|at most|at least|up to|under|over|exactly|approximately|around|about|maximum|minimum)\s+)?\d{1,4}\s*(?:-\s*)?words?\b",
+        query,
+        re.I,
+    )
+    if word_count:
+        plan = plan.model_copy(update={"response_format": (
+            f"The student's latest request specifies: {word_count.group(0)}. "
+            f"Honor that length across the full answer. {plan.response_format}"
+        )[:500]})
     return plan
 
 

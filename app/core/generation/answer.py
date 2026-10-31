@@ -140,6 +140,10 @@ _MIXED_SYSTEM_PROMPT = (
     "(such as specific dates, platforms, or entities documented in the passages). "
     "Focus this supplemental section strictly on explaining the broader concepts, underlying mechanics, "
     "and educational context that the uploaded notes did not cover. "
+    "This section is explicitly allowed to use general model knowledge: do not refuse "
+    "to explain a general topic merely because those details are absent from the documents. "
+    "Honor explicit requested length across the full answer, allocating most of that length "
+    "here if the source material is brief. Do not claim this section is based only on the documents. "
     "Never add document citation markers, sources, URLs, quotations, or claims that "
     "web research was performed. When the plan requires external verification and "
     "none is supplied, give only stable conceptual help and state what must be "
@@ -296,6 +300,17 @@ def _aspect_block(evidence_map) -> str:
     )
 
 
+def _supplemental_aspect_block(evidence_map) -> str:
+    if not evidence_map:
+        return ""
+    return (
+        "=== ASPECT COVERAGE (routing metadata, not evidence) ===\n"
+        + "\n".join(a.model_dump_json() for a in evidence_map)
+        + "\nExplain missing or partial aspects using general knowledge when appropriate. "
+        "Do not present those additions as claims from the uploaded material.\n\n"
+    )
+
+
 async def generate_answer(
     query: str,
     chunks: list[Chunk],
@@ -349,7 +364,7 @@ async def generate_mixed_answer(
         _history_block(history)
         + _plan_block(plan)
         + _coverage_block(covered_aspects, missing_aspects)
-        + _aspect_block(evidence_map)
+        + _supplemental_aspect_block(evidence_map)
         + "=== TOPIC ANCHORS (names and scope from the material; do not cite these in this section) ===\n"
         + format_context(chunks)
         + "\n\n"
@@ -384,7 +399,7 @@ async def generate_mixed_answer(
     )
     return (
         "## From your study material\n\n"
-        + grounded.strip()
+        + (grounded.strip() or "I couldn't generate a source-based explanation from the retrieved material.")
         + "\n\n## Additional explanation (general knowledge)\n\n"
         + supplemental.strip()
     )
