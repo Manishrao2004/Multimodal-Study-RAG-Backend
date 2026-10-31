@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
 from urllib.parse import unquote
 from contextlib import asynccontextmanager
 
@@ -18,9 +20,11 @@ from app.api.routes_conversations import router as conversations_router
 from app.config import get_settings
 from app.state import build_app_state
 from app.core.generation.runtime_context import student_context
+from app.core.generation.build_identity import pipeline_source_sha256
 
 
 logger = logging.getLogger(__name__)
+_loaded_pipeline_sha256 = pipeline_source_sha256()
 
 
 @asynccontextmanager
@@ -92,12 +96,14 @@ async def health():
 
 
 @app.get("/config", tags=["meta"])
-async def config():
+async def config(request: Request):
     """Which models are actually wired up. Misconfiguration (a provider left on
     'none', a model the API key can't reach) is the most common failure in this
     stack, so it is worth being able to see the active setup without reading
     the .env file. Secrets are reported only as present/absent."""
     s = get_settings()
+    state = getattr(request.app.state, "app_state", None)
+    indexed_ids = getattr(getattr(getattr(state, "retrieval", None), "bm25", None), "_chunk_ids", None)
     return {
         "llm": {
             "provider": s.llm_provider,
@@ -134,12 +140,21 @@ async def config():
             "bm25_top_k": s.bm25_top_k,
             "faiss_top_k": s.faiss_top_k,
             "rerank_top_k": s.rerank_top_k,
+            "indexed_chunks": len(indexed_ids) if indexed_ids is not None else None,
+            "indexed_ids_sha256": hashlib.sha256(json.dumps(sorted(indexed_ids)).encode()).hexdigest() if indexed_ids is not None else None,
         },
+        "loaded_pipeline_sha256": _loaded_pipeline_sha256,
         "evidence_policy": {
             "method": s.evidence_method,
             "targeted_retrieval_enabled": s.targeted_retrieval_enabled,
             "max_targeted_queries": s.targeted_retrieval_max_queries,
             "claim_verification_enabled": s.claim_verification_enabled,
             "claim_repair_enabled": s.claim_repair_enabled,
+            "claim_verification_fail_closed": s.claim_verification_fail_closed,
+        },
+        "fallback": {
+            "enabled": bool(s.llm_fallback_base_url),
+            "provider": s.llm_fallback_provider if s.llm_fallback_base_url else None,
+            "model": s.llm_fallback_model if s.llm_fallback_base_url else None,
         },
     }

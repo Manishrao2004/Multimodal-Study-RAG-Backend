@@ -15,7 +15,7 @@ except ImportError:
     sys.exit(1)
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = BACKEND_ROOT / "data" / "kb" / "knowledge_base.sqlite3"
+DB_PATH = BACKEND_ROOT / "data" / "eval" / "asqa" / "knowledge_base.sqlite3"
 
 
 def ensure_db_schema(conn: sqlite3.Connection) -> None:
@@ -51,6 +51,7 @@ def main():
     limit = min(args.limit, total_samples)
     print(f"Dataset loaded. Processing {limit} of {total_samples} samples...")
 
+    args.db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(args.db)
     ensure_db_schema(conn)
 
@@ -74,7 +75,7 @@ def main():
         for qa in item.get("qa_pairs", []):
             ctx = (qa.get("context") or "").strip()
             title = qa.get("wikipage") or "Wikipedia"
-            if ctx and ctx not in seen_texts:
+            if ctx and ctx.casefold() != "no context provided" and ctx not in seen_texts:
                 seen_texts.add(ctx)
                 passages.append((title, ctx))
 

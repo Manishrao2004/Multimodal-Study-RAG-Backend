@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 import httpx
@@ -38,6 +41,25 @@ class LLMError(RuntimeError):
     """Raised when a provider call fails, with the provider's own message kept
     intact — a 404 'model not found' from the gateway is the single most common
     setup mistake and needs to survive up to the API layer."""
+
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+_telemetry: ContextVar[list[dict] | None] = ContextVar("llm_telemetry", default=None)
+_current_call: ContextVar[dict | None] = ContextVar("llm_current_call", default=None)
+
+
+@contextmanager
+def capture_llm_calls():
+    """Capture metadata only; prompts, responses and credentials are excluded."""
+    events: list[dict] = []
+    token = _telemetry.set(events)
+    try:
+        yield events
+    finally:
+        _telemetry.reset(token)
 
 
 @dataclass
@@ -98,15 +120,34 @@ class LLMClient:
 
     async def chat(self, messages: list[dict], temperature: float = 0.1) -> str:
         provider = self.config.provider
-        if provider == "ollama":
-            raw = await self._chat_ollama(messages, temperature)
-        elif provider == "openai_compatible":
-            raw = await self._chat_openai_compatible(messages, temperature)
-        elif provider == "none":
-            raise LLMError("LLM provider is set to 'none'; generation is disabled.")
-        else:
-            raise ValueError(f"Unknown LLM provider: {provider!r}")
-        return strip_think_tags(raw)
+        events = _telemetry.get()
+        started = time.perf_counter()
+        event = {"provider": provider, "model": self.config.model, "status": "error"}
+        if events is not None:
+            events.append(event)
+        token = _current_call.set(event)
+        try:
+            if provider == "ollama":
+                raw = await self._chat_ollama(messages, temperature)
+            elif provider == "openai_compatible":
+                raw = await self._chat_openai_compatible(messages, temperature)
+            elif provider == "none":
+                raise LLMError("LLM provider is set to 'none'; generation is disabled.")
+            else:
+                raise ValueError(f"Unknown LLM provider: {provider!r}")
+            if event["status"] != "fallback_used":
+                event["status"] = "ok"
+            return strip_think_tags(raw)
+        except Exception as exc:
+            if event["status"] == "fallback_used":
+                event["status"] = "fallback_failed"
+            event["error_type"] = type(exc).__name__
+            if isinstance(exc, LLMError) and exc.status_code is not None:
+                event["http_status"] = exc.status_code
+            raise
+        finally:
+            event["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 1)
+            _current_call.reset(token)
 
     async def _chat_ollama(self, messages: list[dict], temperature: float) -> str:
         url = f"{self.config.base_url.rstrip('/')}/api/chat"
@@ -141,8 +182,15 @@ class LLMClient:
             data = await self._post(url, payload, headers)
         except LLMError as primary_err:
             fb = self.config.fallback
-            if fb is None or "429" not in str(primary_err):
+            if fb is None or primary_err.status_code != 429:
                 raise
+            current = _current_call.get()
+            if current is not None:
+                current["status"] = "fallback_used"
+            events = _telemetry.get()
+            if events is not None:
+                events.append({"provider": self.config.provider, "model": self.config.model,
+                               "status": "rate_limited_fallback", "http_status": 429})
             # Primary exhausted retries on rate-limit → try fallback once.
             import logging as _logging
             _logging.getLogger(__name__).warning(
@@ -163,11 +211,23 @@ class LLMClient:
         last_error: Exception | None = None
 
         for attempt in range(self.config.max_retries + 1):
+            current = _current_call.get()
+            if current is not None:
+                current["http_attempts"] = current.get("http_attempts", 0) + 1
             try:
                 async with httpx.AsyncClient(timeout=self.config.timeout) as client:
                     resp = await client.post(url, json=payload, headers=headers)
                     resp.raise_for_status()
-                    return resp.json()
+                    data = resp.json()
+                    if current is not None:
+                        usage = data.get("usage") or {}
+                        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                            if isinstance(usage.get(key), int):
+                                current[key] = usage[key]
+                        for source, target in (("prompt_eval_count", "prompt_tokens"), ("eval_count", "completion_tokens")):
+                            if isinstance(data.get(source), int):
+                                current[target] = data[source]
+                    return data
             except httpx.HTTPStatusError as exc:
                 last_error = exc
                 status = exc.response.status_code
@@ -175,7 +235,7 @@ class LLMClient:
                 if not retryable or attempt == self.config.max_retries:
                     raise LLMError(
                         f"{self.config.provider} call failed ({status}) for model "
-                        f"'{self.config.model}': {exc.response.text[:400]}"
+                        f"'{self.config.model}': {exc.response.text[:400]}", status_code=status
                     ) from exc
                 delay = parse_retry_after(exc.response) or self.config.backoff_base**attempt
                 # Cap so one absurd Retry-After can't stall a whole benchmark run.

@@ -20,7 +20,7 @@ from app.core.generation.answer import (
     generate_general_answer,
     generate_mixed_answer,
 )
-from app.core.generation.llm_client import LLMError
+from app.core.generation.llm_client import LLMError, capture_llm_calls
 from app.core.generation.aspect_pipeline import assess_aspects
 from app.core.generation.aspect_evidence import apply_map
 from app.core.generation.claim_verification import verify_and_repair, source_excerpt_fallback
@@ -100,6 +100,15 @@ async def _comprehensive_retrieve(request: AskRequest, state: AppState, query: s
 
 @router.post("/ask", response_model=AskResponse)
 async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
+    # Metadata only: never expose prompts, provider bodies, URLs, or secrets.
+    # This tracks the actual model used when a configured provider falls back.
+    with capture_llm_calls() as calls:
+        response = await _ask_impl(request, state)
+        response.model_calls = calls
+        return response
+
+
+async def _ask_impl(request: AskRequest, state: AppState):
     method = request.evidence_method or EvidenceMethod(state.settings.evidence_method)
     strict_source = request.answer_scope == AnswerScope.sources_only or (
         method == EvidenceMethod.edurag and request.answer_scope != AnswerScope.model_only)
@@ -358,6 +367,8 @@ async def ask(request: AskRequest, state: AppState = Depends(get_app_state)):
         provenance_notice += " The requested visual details could not be verified from the actual figure; caption text alone does not establish them."
     if source_abstained:
         provenance_notice = "No source-specific answer was generated because supporting material could not be verified."
+    elif claim_verification.status == "unavailable" and not claim_verification.withheld:
+        provenance_notice = "Source-claim verification was unavailable. The source-based answer is unverified; inspect its citations before relying on it."
     elif claim_verification.fallback_kind == "supported_claims":
         provenance_notice = "Source-supported answer units were retained; other generated source claims were omitted because verification did not establish support. General knowledge remains separate."
     elif claim_verification.fallback_used:

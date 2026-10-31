@@ -38,6 +38,14 @@ def test_cluster_comparison_is_paired_and_deterministic():
             dict(id="a", group="g", method="aspect_no_retrieval", expected_aspects={"x":"supported"}, status="error")]
     assert paired_aspect_differences(rows) == paired_aspect_differences(rows)
     assert paired_aspect_differences(rows)[0]["mean_difference"] == 1
+    assert paired_aspect_differences(rows)[0]["cluster_bootstrap95"] is None
+
+
+def test_whole_question_is_not_scored_against_incompatible_aspect_names():
+    rows = [dict(id="a", group="g", method="whole_question", expected_aspects={"reliability":"supported"},
+        status="ok", elapsed_ms=1, response={"evidence_map":[dict(aspect="Compare TCP and UDP", status="supported")]})]
+    assert summarize(rows)["whole_question"]["aspect_status_accuracy"] is None
+    assert paired_aspect_differences(rows) == []
 
 
 def test_invalid_dataset_does_not_allow_initial_gold_outside_available_corpus():

@@ -249,9 +249,12 @@ async def verify_and_repair(answer, chunks, settings, basis):
         report.status = "unavailable"
         report.failure_type = type(exc).__name__
         fail_closed = getattr(settings, "claim_verification_fail_closed", True)
-        if not fail_closed:
+        # A completed audit may already have rejected claims; a failed repair
+        # must never put those claims back into a supposedly source answer.
+        known_unsupported = has_failures(report.claims) or has_failures(report.initial_claims)
+        if not fail_closed and not known_unsupported:
             report.withheld = False
-            report.reason = "Source-claim verification was skipped due to provider limits. Answer is released unverified."
+            report.reason = "Source-claim verification was unavailable. Answer is released unverified."
             return answer, report
         report.withheld = True
         report.reason = "Source-claim verification could not be completed within its budget."
