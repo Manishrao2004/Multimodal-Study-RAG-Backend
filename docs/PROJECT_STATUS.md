@@ -33,14 +33,3 @@ README for setup, modes, storage and limitations.
   separate. Detailed values, limitations and local artifact paths are in
   [ASQA validation](ASQA_VALIDATION.md).
 
-## Remaining work before a paper claim
-
-Define a held-out, representative benchmark and a corpus constructed without
-answer leakage; use the official ASQA metrics when appropriate. Evaluate both
-methods on the same questions with frozen configuration and report failures,
-latency, token usage, exclusions and uncertainty. Obtain independent review of
-factual correctness, support for each cited claim, coverage, abstentions and
-mixed background. Evaluate summaries, comparisons, quizzes, flashcards,
-screenshots and figures independently on realistic examples. A human-reviewed
-study is needed for any claim of improved learning. Local ignored artifacts
-must be archived with the experiment before sharing results.
