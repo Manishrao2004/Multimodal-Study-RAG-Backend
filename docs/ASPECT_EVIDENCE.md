@@ -5,8 +5,9 @@
 The `aspect` method extends the existing adaptive answer policy. It is an
 implementation to evaluate, not evidence that the system outperforms EduRAG.
 The ten shipped examples are developer-authored fixtures, not independently
-reviewed labels or a held-out publication dataset. No live provider experiment
-was run as part of implementing this feature.
+reviewed labels or a held-out publication dataset. Subsequent live pilots are
+documented in [saved metrics](FINAL_METRICS.md); they do not validate every
+configuration or establish superiority over the baseline paper.
 
 The existing ingestion, BM25/FAISS, HyDE, cross-encoder, deterministic token
 grounding, and chunk attribution remain the foundation. The contribution to
@@ -141,7 +142,8 @@ content is withheld rather than partially checked. These are budgets, not
 measured latency or token-usage statistics. Planning, original retrieval/HyDE,
 generation, figure inspection and optional conflict detection have their own
 costs. The new runner is serial and puts a 300-second cap on each whole handler
-attempt. Provider token usage is not currently recorded.
+attempt. Provider telemetry can record usage returned by the provider; missing
+usage is not evidence of zero tokens, and failed requests may lack telemetry.
 
 ## Isolated comparison runner
 
@@ -210,7 +212,7 @@ keep reviewer disagreements and adjudication. A held-out educational dataset,
 independent claim evaluation, a broader end-to-end retrieval study, and any
 student learning-effect study remain research work, not generated results.
 
-## Verification performed for this implementation
+## Historical verification performed during implementation
 
 Network-blocked regression tests cover map provenance, conflicts, bounded gap
 retrieval, saturated context admission, failed reassessment rollback, explicit
@@ -219,5 +221,5 @@ malformed claim audits, citation bounds, invented quotes, one repair/recheck,
 mixed-section isolation, and audit budgets. Evaluation tests cover dataset
 integrity, excluded evidence, missing metrics, paired comparisons, and blank
 human-review exports. Frontend TypeScript, targeted ESLint, and production
-build pass. Browser inspection was unavailable in the environment; no live
-visual review or live model-quality measurement is claimed.
+build passed for that revision. Browser inspection was unavailable during that
+work. Later pilot measurements are separate and do not validate visual quality.

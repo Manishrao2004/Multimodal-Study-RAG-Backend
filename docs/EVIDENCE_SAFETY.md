@@ -1,5 +1,10 @@
 # Evidence support and conservative answering
 
+This describes the evidence-safety implementation and its original validation.
+Actual behavior depends on the selected method and enabled settings. In
+particular, the current local configuration can disable the source-claim audit;
+see [configuration](CONFIGURATION.md) and [saved metrics](FINAL_METRICS.md).
+
 This change applies to ordinary text, tables, calculations, comparisons and extracted figures. Auto mode should use sources only when the requested information has traceable support. Topic relevance alone is insufficient.
 
 ## Text and tables
@@ -42,4 +47,6 @@ uv run pytest app/tests app/eval -q
 
 The new safety tests block HTTP transport and use controlled provider responses. They cover text support, fabricated quotes, missing comparison items, arithmetic, outline depth, current-fact verification, routing failures, explicit mode overrides, neighboring-source boundaries, context limits, image payload construction, cache invalidation, unreadable images, provider failures and figure-call limits.
 
-The earlier live Ragas scores and PDF/Word metrics report describe the saved experiment before this change. They have not been regenerated or reused as evidence of improved live accuracy for this implementation. No live model calls were made to test this change. A future live comparison should use fresh artifacts, frozen independent references and an explicitly agreed API budget.
+The original implementation work did not include live calls for this change.
+Later ASQA pilots are described in [saved metrics](FINAL_METRICS.md); they do not
+independently establish improved live accuracy for the current configuration.

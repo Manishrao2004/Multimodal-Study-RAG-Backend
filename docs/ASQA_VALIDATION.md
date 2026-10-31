@@ -1,5 +1,8 @@
 # ASQA validation notes
 
+For a consolidated account of the saved Aspect and Adaptive results and why
+they cannot be compared directly, see [saved metrics](FINAL_METRICS.md).
+
 ## Retrieval probe (2026-10-30)
 
 The experiment in `artifacts/asqa-retrieval-20261030` uses the first 100 cached

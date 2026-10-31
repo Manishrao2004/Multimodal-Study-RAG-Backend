@@ -33,6 +33,6 @@ uv run pytest
 uv run python -m app.eval.aspect_study --check
 ```
 
-The ASQA retrieval and answer runners use the user's populated SQL corpus and cached ASQA dev data. The RAGAS runner requires the optional `eval` group and a configured judge model. See [ASQA validation](docs/ASQA_VALIDATION.md) for saved results, exclusions, rate limits and interpretation, and [metrics and validation](docs/METRICS_VALIDATION.md) for definitions. See [aspect evidence](docs/ASPECT_EVIDENCE.md) and [evidence safety](docs/EVIDENCE_SAFETY.md) for implementation details.
+The ASQA retrieval and answer runners use the user's populated SQL corpus and cached ASQA dev data. The RAGAS runner requires the optional `eval` group and a configured judge model. See [saved Aspect and Adaptive metrics](docs/FINAL_METRICS.md) for the results and their limitations, [ASQA validation](docs/ASQA_VALIDATION.md) for experiment details, and [metrics and validation](docs/METRICS_VALIDATION.md) for definitions. See [aspect evidence](docs/ASPECT_EVIDENCE.md) and [evidence safety](docs/EVIDENCE_SAFETY.md) for implementation details.
 
 The existing RAGAS results are a small pilot, not a completed publication evaluation. The retrieval probe uses answer-related ASQA contexts and incomplete relevance labels; it is not the official ASQA answer score. Evaluation runs must record dataset and code versions, provider/model, failures, exclusions and review status. A paired held-out study and independent human review of claim support, citations, coverage and abstentions remain necessary for a paper.

@@ -1,5 +1,10 @@
 # Study RAG Metrics and Validation
 
+This is the evaluation protocol and includes historical development notes.
+For saved Aspect and Adaptive results with their experimental settings and
+limitations, see [saved metrics](FINAL_METRICS.md). Historical observations
+here do not establish current-configuration performance.
+
 This document defines how to evaluate the study assistant for a final year major project. It covers retrieval, adaptive answering, factual support, citations, student usefulness, document viewing, reliability, and reproducibility. Use it with the machine readable run artifacts to explain what was tested and what the results establish.
 
 The central research question is whether adaptive answering selects an appropriate evidence policy and gives a useful explanation while accurately identifying which claims come from uploaded material. A high similarity score alone cannot answer that question. Each metric below has a specific denominator and a separate interpretation.
@@ -138,7 +143,7 @@ Completion rate is successful requests divided by all attempted requests. A fail
 
 Latency in the controlled suite measures wall clock time around the production handler. It includes generation and attribution but excludes process startup and index building. Report p50 and p95 with the nearest rank convention and the sample count. Provider rate limiting, retries, machine load, cold model loading, and network conditions affect the result. Twelve observations do not support a production service latency claim.
 
-The current adapter does not measure provider tokens, monetary cost, concurrent throughput, or frontend rendering time. Add request usage telemetry and the actual model tariff at evaluation time before reporting cost. Do not infer token counts from character counts. Separate ingestion time, conversion time, retrieval time, time to first token, complete answer latency, and viewer latency when profiling the entire product.
+The historical controlled adapter did not measure provider tokens, monetary cost, concurrent throughput, or frontend rendering time. Newer telemetry can capture usage returned by providers, but missing usage must not be treated as zero. Record complete usage and the actual model tariff before reporting cost. Do not infer token counts from character counts. Separate ingestion time, conversion time, retrieval time, time to first token, complete answer latency, and viewer latency when profiling the entire product.
 
 ## 10 Dataset construction and human validation
 

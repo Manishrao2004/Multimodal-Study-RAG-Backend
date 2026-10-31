@@ -1,5 +1,10 @@
 # Adaptive Hybrid Study Assistant Plan
 
+> Historical planning document. The current implementation additionally has
+> an optional aspect-aware policy and claim audit. This plan is not an accurate
+> list of completed or outstanding work; see [README](README.md),
+> [configuration](docs/CONFIGURATION.md), and [saved metrics](docs/FINAL_METRICS.md).
+
 ## Product goal
 
 Turn the current source-only RAG application into a provenance-aware tutor that

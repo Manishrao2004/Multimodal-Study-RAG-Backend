@@ -24,9 +24,9 @@ only, or a benchmark size such as `97`.
 3. Run the evaluation:
    `uv run python -m app.eval.cli run --report data/eval/report.md --json data/eval/results.json`
 
-   This makes one LLM call per query and will take several minutes — free-tier
-   token limits (Groq: 8k TPM) trigger backoff between calls. Run it in the
-   background and wait rather than shortening the benchmark to make it finish.
+   This may make multiple provider calls and take several minutes. Quotas vary
+   by account and model. Record rate limits, retries, errors and the actual
+   configuration rather than silently dropping or shortening cases.
 
 ## Reporting
 

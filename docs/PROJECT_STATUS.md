@@ -2,7 +2,8 @@
 
 Verity is a local multimodal study assistant. The current text-question path
 uses aspect-aware evidence assessment and can use source-claim checking when
-enabled and source evidence is used. Study tools and screenshot questions have separate paths and
+enabled and source evidence is used. Study tools and screenshot questions have
+separate paths and
 have not been evaluated as if they used the same claim audit. See the root
 README for setup, modes, storage and limitations.
 
@@ -32,5 +33,6 @@ README for setup, modes, storage and limitations.
   curated corpus, small paired sample and automatic judge limit interpretation.
   An earlier five-question pilot used a different code fingerprint and is kept
   separate. Detailed values, limitations and local artifact paths are in
-  [ASQA validation](ASQA_VALIDATION.md).
+  [ASQA validation](ASQA_VALIDATION.md). For the historical Adaptive results
+  and the limits on comparisons, see [saved metrics](FINAL_METRICS.md).
 
